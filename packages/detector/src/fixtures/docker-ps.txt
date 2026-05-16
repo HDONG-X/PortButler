@@ -1,0 +1,2 @@
+CONTAINER ID   IMAGE          COMMAND                  PORTS
+abc123         postgres:16    "docker-entrypoint.s…"   0.0.0.0:5432->5432/tcp

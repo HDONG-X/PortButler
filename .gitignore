@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+.vscode
+.cursor
+UI-PNG
+port-butler-dev-architecture.md
+
+# Bun / package manager caches
+.bun/
+bun-debug.log*
+
+# Turborepo cache
+.turbo/
+
+# Build outputs
+dist/
+build/
+out/
+coverage/
+*.tsbuildinfo
+packages/*/dist/
+packages/*/build/
+packages/*/coverage/
+
+# Test and runtime artifacts
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Local user configuration
+*.local.json
+*.local.jsonc
+*.local.toml
+
+# Editor / IDE files
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Downloaded reference source used during development, not part of Port Butler
+opencode/

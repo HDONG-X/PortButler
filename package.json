@@ -1,0 +1,22 @@
+{
+  "name": "port-butler-monorepo",
+  "private": true,
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo build",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "format": "prettier --write .",
+    "release:local": "bun scripts/build.ts",
+    "pbt": "bun packages/cli/src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "prettier": "latest",
+    "turbo": "latest",
+    "typescript": "5.8.x"
+  }
+}

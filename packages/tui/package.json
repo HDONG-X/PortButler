@@ -1,0 +1,26 @@
+{
+  "name": "@port-butler/tui",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@opentui/core": "latest",
+    "@opentui/solid": "latest",
+    "@port-butler/config": "workspace:*",
+    "@port-butler/core": "workspace:*",
+    "@port-butler/platform": "workspace:*",
+    "@port-butler/theme": "workspace:*",
+    "effect": "latest",
+    "solid-js": "latest"
+  }
+}

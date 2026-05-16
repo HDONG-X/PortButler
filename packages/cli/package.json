@@ -1,0 +1,25 @@
+{
+  "name": "port-butler",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "pbt": "./src/index.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun --external @port-butler/tui --external @opentui/solid --external @opentui/solid/jsx-runtime --external solid-js",
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@port-butler/config": "workspace:*",
+    "@port-butler/core": "workspace:*",
+    "@port-butler/platform": "workspace:*",
+    "@port-butler/tui": "workspace:*",
+    "effect": "latest",
+    "picocolors": "latest",
+    "string-width": "latest"
+  }
+}

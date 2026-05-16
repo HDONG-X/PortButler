@@ -1,0 +1,19 @@
+{
+  "name": "@port-butler/core",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@port-butler/config": "workspace:*",
+    "@port-butler/detector": "workspace:*",
+    "@port-butler/platform": "workspace:*",
+    "effect": "latest"
+  }
+}
