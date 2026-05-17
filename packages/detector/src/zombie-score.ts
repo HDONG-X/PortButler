@@ -35,7 +35,7 @@ export function scoreZombieProcess(input: ZombieScoreInput): {
 
   if (
     command.includes("dev") ||
-    command.includes("serve") ||
+    /\bserve\b/.test(command) ||
     command.includes("vite") ||
     command.includes("next dev")
   ) {

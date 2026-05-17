@@ -5,3 +5,4 @@ export * from "./kill-plan";
 export * from "./model";
 export * from "./ports";
 export * from "./protection";
+export * from "./version";

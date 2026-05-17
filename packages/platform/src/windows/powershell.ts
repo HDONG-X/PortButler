@@ -50,6 +50,8 @@ export function parseCimProcessJson(output: string, pid: number): PlatformProces
 
 function parseWmiDate(value?: string): Date | null {
   if (!value) return null;
+  const jsonDate = value.match(/\/Date\((\d+)\)\//);
+  if (jsonDate) return new Date(Number(jsonDate[1]));
   const match = value.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
   if (!match) return null;
   const [, year, month, day, hour, minute, second] = match;

@@ -9,6 +9,8 @@ import { renderJson } from "../output/json";
 export function doctorCommand(options: GlobalOptions): Effect.Effect<string, Error> {
   return Effect.map(runDoctor(), (checks) => {
     if (options.json) return renderJson(checks);
-    return checks.map((check) => `${check.ok ? "OK" : "FAIL"}  ${check.name}  ${check.message}`).join("\n");
+    return checks
+      .map((check) => `${check.ok ? "OK" : "FAIL"}  ${check.name}  ${check.message}`)
+      .join("\n");
   });
 }

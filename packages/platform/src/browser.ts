@@ -9,7 +9,9 @@ export function openLocalhost(url: string): Effect.Effect<void, Error> {
     return Effect.asVoid(runShell("open", [url]));
   }
   if (process.platform === "win32") {
-    return Effect.asVoid(runShell("powershell.exe", ["-NoProfile", "-Command", `Start-Process '${url}'`]));
+    return Effect.asVoid(
+      runShell("powershell.exe", ["-NoProfile", "-Command", `Start-Process '${url}'`]),
+    );
   }
   return Effect.fail(new Error("当前平台暂不支持打开浏览器。下一步：请手动打开该 URL。"));
 }

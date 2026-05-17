@@ -52,7 +52,13 @@ export function renderKillPlan(plan: KillPlan): string {
     target.risk,
     target.reasons.join("；"),
   ]);
-  return [`${plan.message}`, "", rows.length ? table(["PORT", "PID", "NAME", "KIND", "RISK", "REASON"], rows) : "没有可处理目标。"].join("\n");
+  return [
+    `${plan.message}`,
+    "",
+    rows.length
+      ? table(["PORT", "PID", "NAME", "KIND", "RISK", "REASON"], rows)
+      : "没有可处理目标。",
+  ].join("\n");
 }
 
 /**
@@ -79,7 +85,9 @@ export function renderCleanPlan(plan: CleanPlan): string {
   return [
     `发现 ${plan.candidates.length} 个疑似遗留开发进程：`,
     "",
-    rows.length ? table(["PORT", "PID", "NAME", "KIND", "SCORE", "REASON"], rows) : "没有达到清理阈值的候选项。",
+    rows.length
+      ? table(["PORT", "PID", "NAME", "KIND", "SCORE", "REASON"], rows)
+      : "没有达到清理阈值的候选项。",
     "",
     ...skipped,
     "",
@@ -95,5 +103,9 @@ function table(headers: string[], rows: string[][]): string {
   );
   const renderRow = (row: string[]) =>
     row.map((cell, index) => cell + " ".repeat(widths[index] - stringWidth(cell))).join("  ");
-  return [renderRow(headers), renderRow(headers.map((h, i) => "-".repeat(widths[i]))), ...rows.map(renderRow)].join("\n");
+  return [
+    renderRow(headers),
+    renderRow(headers.map((h, i) => "-".repeat(widths[i]))),
+    ...rows.map(renderRow),
+  ].join("\n");
 }

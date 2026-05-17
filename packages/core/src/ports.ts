@@ -8,7 +8,9 @@ import { isNeverKillProcess, isProtectedPort, resolveKillRisk } from "./protecti
 /**
  * 根据平台扫描结果、进程详情、检测器和保护策略生成完整端口解释列表。
  */
-export function listExplainedPorts(config: PortButlerConfig): Effect.Effect<ExplainedPort[], Error> {
+export function listExplainedPorts(
+  config: PortButlerConfig,
+): Effect.Effect<ExplainedPort[], Error> {
   return Effect.gen(function* () {
     const bindings = yield* listListeningPorts();
     const uniqueBindings = dedupeBindings(bindings);
@@ -16,20 +18,28 @@ export function listExplainedPorts(config: PortButlerConfig): Effect.Effect<Expl
       uniqueBindings,
       (binding) =>
         Effect.gen(function* () {
-          const process = yield* Effect.catchAll(
-            inspectProcess(binding.pid),
-            () =>
-              Effect.succeed<ProcessInfo>({
-                pid: binding.pid,
-                ppid: null,
-                name: "unknown",
-                commandLine: null,
-                cwd: null,
-                startedAt: null,
-                user: null,
-              }),
+          const process = yield* Effect.catchAll(inspectProcess(binding.pid), () =>
+            Effect.succeed<ProcessInfo>({
+              pid: binding.pid,
+              ppid: null,
+              name: "unknown",
+              commandLine: null,
+              cwd: null,
+              startedAt: null,
+              user: null,
+            }),
           );
-          const detection = classifyProcess(process, binding.localPort);
+          const detected = classifyProcess(process, binding.localPort);
+          const detection =
+            !config.docker.enabled && detected.kind === "docker"
+              ? {
+                  kind: "unknown" as const,
+                  confidence: 20,
+                  isInfrastructure: false,
+                  isDevServer: false,
+                  reasons: ["Docker 识别已在配置中关闭"],
+                }
+              : detected;
           const protectedPort = isProtectedPort(binding.localPort, config);
           const neverKill = isNeverKillProcess(process, config);
           const risk = resolveKillRisk({ protected: protectedPort, neverKill, detection });
@@ -40,7 +50,10 @@ export function listExplainedPorts(config: PortButlerConfig): Effect.Effect<Expl
             config,
             protected: protectedPort,
           });
-          return { binding, process, detection, protected: protectedPort, risk, ...zombie };
+          const safeZombie = neverKill
+            ? { zombieScore: 0, zombieReasons: ["进程位于永不终止清单"] }
+            : zombie;
+          return { binding, process, detection, protected: protectedPort, risk, ...safeZombie };
         }),
       { concurrency: 8 },
     );
@@ -55,8 +68,9 @@ export function explainPort(
   port: number,
   config: PortButlerConfig,
 ): Effect.Effect<ExplainedPort | null, Error> {
-  return Effect.map(listExplainedPorts(config), (ports) =>
-    ports.find((item) => item.binding.localPort === port) ?? null,
+  return Effect.map(
+    listExplainedPorts(config),
+    (ports) => ports.find((item) => item.binding.localPort === port) ?? null,
   );
 }
 
@@ -66,14 +80,19 @@ export function explainPort(
 export function dedupeBindings<T extends { localAddress: string; localPort: number; pid: number }>(
   bindings: T[],
 ): T[] {
-  const seen = new Set<string>();
-  const output: T[] = [];
+  const byPortAndPid = new Map<string, T>();
   for (const binding of bindings) {
-    const key = `${binding.localPort}:${binding.pid}:${binding.localAddress}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      output.push(binding);
+    const key = `${binding.localPort}:${binding.pid}`;
+    const existing = byPortAndPid.get(key);
+    if (!existing || addressRank(binding.localAddress) > addressRank(existing.localAddress)) {
+      byPortAndPid.set(key, binding);
     }
   }
-  return output;
+  return [...byPortAndPid.values()];
+}
+
+function addressRank(address: string): number {
+  if (address === "0.0.0.0" || address === "::" || address === "*") return 0;
+  if (address === "127.0.0.1" || address === "::1") return 2;
+  return 3;
 }

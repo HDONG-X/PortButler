@@ -37,20 +37,24 @@ bun run pbt kill 3000 --dry-run
 
 ## Commands
 
-| Command | Description |
-| --- | --- |
-| `pbt` | Start the terminal UI by default. |
-| `pbt ls` | List listening ports. |
-| `pbt why <port>` | Explain who owns a port and why it was classified. |
-| `pbt kill <port>` | Create a kill plan. Add `--yes` only after review. |
-| `pbt protect <port>` | Add a port to the protected list. |
-| `pbt unprotect <port>` | Remove a port from the protected list. |
-| `pbt clean` | Preview zombie development-process cleanup candidates. |
-| `pbt open <port>` | Open `http://localhost:<port>` in the default browser. |
-| `pbt doctor` | Check platform support and required commands. |
-| `pbt ui` | Start the terminal UI explicitly. |
+| Command                | Description                                            |
+| ---------------------- | ------------------------------------------------------ |
+| `pbt`                  | Start the terminal UI by default.                      |
+| `pbt ls`               | List listening ports.                                  |
+| `pbt why <port>`       | Explain who owns a port and why it was classified.     |
+| `pbt kill <port>`      | Create a kill plan. Add `--yes` only after review.     |
+| `pbt protect <port>`   | Add a port to the protected list.                      |
+| `pbt unprotect <port>` | Remove a port from the protected list.                 |
+| `pbt clean`            | Preview zombie development-process cleanup candidates. |
+| `pbt config path`      | Print the config file path Port Butler will use.       |
+| `pbt config show`      | Print the merged runtime configuration as JSON.        |
+| `pbt config init`      | Write the default configuration file.                  |
+| `pbt open <port>`      | Open `http://localhost:<port>` in the default browser. |
+| `pbt doctor`           | Check platform support and required commands.          |
+| `pbt ui`               | Start the terminal UI explicitly.                      |
+| `pbt version`          | Print the current Port Butler version.                 |
 
-Global options: `--json`, `--verbose`, `--dry-run`, `--yes`, `--force`, `--config <path>`.
+Global options: `--json`, `--verbose`, `--dry-run`, `--yes`, `--force`, `--include-infra`, `--no-color`, `--config <path>`.
 
 ## Terminal UI
 
@@ -82,6 +86,8 @@ Port Butler never kills directly from scan logic. Every dangerous action creates
 
 `clean` does not remove Docker, Postgres, or Redis by default.
 
+`pbt kill <port>` displays the plan by default. Add `--yes` only after review; high-risk targets also require `--force`.
+
 ## Development
 
 ```bash
@@ -92,6 +98,14 @@ bun run build
 ```
 
 This repository uses Bun Workspaces, Turborepo, TypeScript, Effect, JSONC, Solid/OpenTUI, and Prettier.
+
+Design and engineering notes live in:
+
+- [Architecture](docs/architecture.md)
+- [CLI spec](docs/cli-spec.md)
+- [Safety model](docs/safety.md)
+- [Detector rules](docs/detector-rules.md)
+- [Release notes](docs/release.md)
 
 ## Monorepo Layout
 
@@ -108,4 +122,4 @@ packages/testkit   test helpers
 
 ## License
 
-This project is not licensed yet. Add a license before publishing or accepting external contributions.
+Apache License 2.0. See [LICENSE](LICENSE).

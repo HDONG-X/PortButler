@@ -12,6 +12,7 @@ export function lsCommand(options: GlobalOptions): Effect.Effect<string, Error> 
   return Effect.gen(function* () {
     const config = yield* readConfig(options.configPath);
     const ports = yield* listExplainedPorts(config);
-    return options.json ? renderJson(ports) : renderPortTable(ports);
+    const json = options.json || config.output.defaultFormat === "json";
+    return json ? renderJson(ports) : renderPortTable(ports);
   });
 }

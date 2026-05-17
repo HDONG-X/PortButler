@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseLsofListeningPorts } from "./macos/lsof";
 import { parseNetstat } from "./windows/netstat";
-import { parseGetNetTcpConnectionJson } from "./windows/powershell";
+import { parseCimProcessJson, parseGetNetTcpConnectionJson } from "./windows/powershell";
 
 describe("platform parsers", () => {
   test("解析 macOS lsof", () => {
@@ -25,5 +25,17 @@ node    19231 user   22u  IPv4  12345      0t0  TCP 127.0.0.1:5173 (LISTEN)`;
       pid: 4242,
       protocol: "tcp",
     });
+  });
+
+  test("解析 PowerShell JSON 日期格式", () => {
+    const startedAt = new Date("2026-05-17T01:02:03.000Z");
+    const output = JSON.stringify({
+      ProcessId: 42,
+      ParentProcessId: 7,
+      Name: "node.exe",
+      CommandLine: "node vite",
+      CreationDate: `/Date(${startedAt.getTime()})/`,
+    });
+    expect(parseCimProcessJson(output, 42).startedAt?.getTime()).toBe(startedAt.getTime());
   });
 });

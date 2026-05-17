@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { defaultConfig } from "@port-butler/config";
-import { isProtectedPort, resolveKillRisk } from "./protection";
+import { isNeverKillProcess, isProtectedPort, resolveKillRisk } from "./protection";
+import { dedupeBindings } from "./ports";
 
 describe("protection policy", () => {
   test("默认保护关键端口", () => {
@@ -21,5 +22,31 @@ describe("protection policy", () => {
       },
     });
     expect(risk).toBe("blocked");
+  });
+
+  test("同一 PID 和端口的多地址监听只展示一次", () => {
+    const deduped = dedupeBindings([
+      { localAddress: "::", localPort: 3000, pid: 42 },
+      { localAddress: "0.0.0.0", localPort: 3000, pid: 42 },
+      { localAddress: "127.0.0.1", localPort: 3000, pid: 42 },
+    ]);
+    expect(deduped).toEqual([{ localAddress: "127.0.0.1", localPort: 3000, pid: 42 }]);
+  });
+
+  test("永不终止清单匹配 Windows 进程名", () => {
+    expect(
+      isNeverKillProcess(
+        {
+          pid: 4,
+          ppid: 0,
+          name: "svchost.exe",
+          commandLine: "svchost.exe",
+          cwd: null,
+          startedAt: null,
+          user: null,
+        },
+        defaultConfig,
+      ),
+    ).toBe(true);
   });
 });

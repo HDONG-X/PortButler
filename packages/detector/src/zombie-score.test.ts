@@ -52,4 +52,29 @@ describe("zombie score", () => {
     });
     expect(score.zombieScore).toBe(0);
   });
+
+  test("普通进程名包含 server 不会命中 serve 开发关键词", () => {
+    const score = scoreZombieProcess({
+      binding: { localPort: 17419, pid: 300 },
+      process: {
+        pid: 300,
+        ppid: 2,
+        name: "GameViewerServer.exe",
+        commandLine: "GameViewerServer.exe",
+        cwd: null,
+        startedAt: null,
+        user: null,
+      },
+      detection: {
+        kind: "unknown",
+        confidence: 20,
+        isInfrastructure: false,
+        isDevServer: false,
+        reasons: [],
+      },
+      config: defaultConfig,
+      protected: false,
+    });
+    expect(score.zombieReasons).not.toContain("命令行包含开发服务关键字");
+  });
 });

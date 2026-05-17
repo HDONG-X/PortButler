@@ -37,20 +37,24 @@ bun run pbt kill 3000 --dry-run
 
 ## 命令
 
-| 命令 | 说明 |
-| --- | --- |
-| `pbt` | 默认启动终端 UI。 |
-| `pbt ls` | 列出监听端口。 |
-| `pbt why <port>` | 解释端口归属和识别依据。 |
-| `pbt kill <port>` | 生成 kill plan，确认后再加 `--yes`。 |
-| `pbt protect <port>` | 将端口加入保护列表。 |
-| `pbt unprotect <port>` | 从保护列表移除端口。 |
-| `pbt clean` | 预览僵尸开发进程清理候选。 |
-| `pbt open <port>` | 打开 `http://localhost:<port>`。 |
-| `pbt doctor` | 检查平台依赖和命令可用性。 |
-| `pbt ui` | 显式启动终端 UI。 |
+| 命令                   | 说明                                 |
+| ---------------------- | ------------------------------------ |
+| `pbt`                  | 默认启动终端 UI。                    |
+| `pbt ls`               | 列出监听端口。                       |
+| `pbt why <port>`       | 解释端口归属和识别依据。             |
+| `pbt kill <port>`      | 生成 kill plan，确认后再加 `--yes`。 |
+| `pbt protect <port>`   | 将端口加入保护列表。                 |
+| `pbt unprotect <port>` | 从保护列表移除端口。                 |
+| `pbt clean`            | 预览僵尸开发进程清理候选。           |
+| `pbt config path`      | 输出当前会使用的配置文件路径。       |
+| `pbt config show`      | 以 JSON 输出合并后的运行配置。       |
+| `pbt config init`      | 写入默认配置文件。                   |
+| `pbt open <port>`      | 打开 `http://localhost:<port>`。     |
+| `pbt doctor`           | 检查平台依赖和命令可用性。           |
+| `pbt ui`               | 显式启动终端 UI。                    |
+| `pbt version`          | 输出当前 Port Butler 版本。          |
 
-全局选项：`--json`、`--verbose`、`--dry-run`、`--yes`、`--force`、`--config <path>`。
+全局选项：`--json`、`--verbose`、`--dry-run`、`--yes`、`--force`、`--include-infra`、`--no-color`、`--config <path>`。
 
 ## 终端 UI
 
@@ -82,6 +86,8 @@ Port Butler 禁止扫描逻辑直接 kill。所有危险操作都必须先生成
 
 `clean` 默认不会清理 Docker、Postgres、Redis。
 
+`pbt kill <port>` 默认只展示计划。确认无风险后再加 `--yes`；高风险目标还需要 `--force`。
+
 ## 开发
 
 ```bash
@@ -92,6 +98,14 @@ bun run build
 ```
 
 本仓库使用 Bun Workspaces、Turborepo、TypeScript、Effect、JSONC、Solid/OpenTUI 和 Prettier。
+
+设计与工程说明：
+
+- [架构](docs/architecture.md)
+- [CLI 规范](docs/cli-spec.md)
+- [安全模型](docs/safety.md)
+- [识别规则](docs/detector-rules.md)
+- [发布说明](docs/release.md)
 
 ## Monorepo 结构
 
@@ -108,4 +122,4 @@ packages/testkit   测试工具
 
 ## 许可证
 
-项目暂未添加许可证。发布或接受外部贡献前请先添加许可证。
+Apache License 2.0。详见 [LICENSE](LICENSE)。

@@ -11,8 +11,10 @@ import { renderWhy } from "../output/table";
 export function whyCommand(port: number, options: GlobalOptions): Effect.Effect<string, Error> {
   return Effect.gen(function* () {
     const config = yield* readConfig(options.configPath);
+    const json = options.json || config.output.defaultFormat === "json";
     const explained = yield* explainPort(port, config);
-    if (!explained) return options.json ? renderJson({ port, bindings: [] }) : `端口 ${port} 当前没有监听进程。`;
-    return options.json ? renderJson(explained) : renderWhy(explained);
+    if (!explained)
+      return json ? renderJson({ port, bindings: [] }) : `端口 ${port} 当前没有监听进程。`;
+    return json ? renderJson(explained) : renderWhy(explained);
   });
 }

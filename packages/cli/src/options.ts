@@ -77,7 +77,9 @@ export function parseArgs(args: string[]): ParsedArgs {
 export function parsePort(value: string | undefined): number {
   const port = Number(value);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error("端口参数无效。原因：端口必须是 1-65535 的整数。下一步：例如执行 pbt why 3000。");
+    throw new Error(
+      "端口参数无效。原因：端口必须是 1-65535 的整数。下一步：例如执行 pbt why 3000。",
+    );
   }
   return port;
 }

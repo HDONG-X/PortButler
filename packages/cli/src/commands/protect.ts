@@ -9,8 +9,10 @@ import { renderJson } from "../output/json";
 export function protectCommand(port: number, options: GlobalOptions): Effect.Effect<string, Error> {
   return Effect.gen(function* () {
     const config = yield* readConfig(options.configPath);
-    if (!config.protectedPorts.includes(port)) config.protectedPorts = [...config.protectedPorts, port].sort((a, b) => a - b);
+    if (!config.protectedPorts.includes(port))
+      config.protectedPorts = [...config.protectedPorts, port].sort((a, b) => a - b);
     yield* writeConfig(config, options.configPath);
-    return options.json ? renderJson({ protectedPorts: config.protectedPorts }) : `已保护端口 ${port}。`;
+    const json = options.json || config.output.defaultFormat === "json";
+    return json ? renderJson({ protectedPorts: config.protectedPorts }) : `已保护端口 ${port}。`;
   });
 }

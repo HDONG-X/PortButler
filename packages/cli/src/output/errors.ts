@@ -3,7 +3,10 @@ import { PortButlerError, toPortButlerError } from "@port-butler/core";
 /**
  * 格式化致命错误。始终包含原因和下一步建议，verbose 时附带原始细节。
  */
-export function formatFatalError(error: unknown, verbose = false): { text: string; exitCode: number } {
+export function formatFatalError(
+  error: unknown,
+  verbose = false,
+): { text: string; exitCode: number } {
   const normalized =
     error instanceof PortButlerError
       ? error

@@ -14,7 +14,9 @@ export function getPlatformDiagnostics(): Effect.Effect<
       {
         name: "platform",
         ok: platformOk,
-        message: platformOk ? `当前平台 ${process.platform} 受支持` : "第一版只支持 macOS 与 Windows",
+        message: platformOk
+          ? `当前平台 ${process.platform} 受支持`
+          : "第一版只支持 macOS 与 Windows",
       },
     ];
 

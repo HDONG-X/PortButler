@@ -9,7 +9,9 @@ export function PortDetailScreen(props: { item: ExplainedPort | undefined }) {
   return (
     <box flexDirection="column">
       <text fg={tuiTheme.text}>端口详情</text>
-      <text fg={tuiTheme.dim}>{item() ? `PID ${item()!.process.pid} ${item()!.process.name}` : "暂无选择"}</text>
+      <text fg={tuiTheme.dim}>
+        {item() ? `PID ${item()!.process.pid} ${item()!.process.name}` : "暂无选择"}
+      </text>
       <text fg={tuiTheme.dim}>{item()?.detection.reasons.join("；") ?? ""}</text>
     </box>
   );

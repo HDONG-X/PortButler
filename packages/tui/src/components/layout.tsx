@@ -1,4 +1,5 @@
 import { keymap } from "../keymap";
+import { PORT_BUTLER_VERSION } from "@port-butler/core";
 import { tuiTheme } from "@port-butler/theme";
 
 /**
@@ -10,7 +11,7 @@ export function Layout(props: { children: unknown; status: string; count: number
       <box flexDirection="column" flexGrow={1} padding={1}>
         <box backgroundColor={tuiTheme.panel} padding={1} width="100%" marginBottom={1}>
           <text fg={tuiTheme.text}>Port Butler</text>
-          <text fg={tuiTheme.dim}>  本地端口管家</text>
+          <text fg={tuiTheme.dim}> 本地端口管家</text>
         </box>
         {props.children}
         <box backgroundColor={tuiTheme.panel} padding={1} width="100%" marginTop={1}>
@@ -25,7 +26,7 @@ export function Layout(props: { children: unknown; status: string; count: number
         <text fg={tuiTheme.text}>Status</text>
         <text fg={tuiTheme.dim}>端口数量 {props.count}</text>
         <text fg={tuiTheme.dim}>{props.status}</text>
-        <text fg={tuiTheme.safe}>● Port Butler 0.1.0</text>
+        <text fg={tuiTheme.safe}>● Port Butler {PORT_BUTLER_VERSION}</text>
       </box>
     </box>
   );

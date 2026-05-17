@@ -7,13 +7,16 @@ import { defaultProtectedPorts, readConfig, writeConfig } from "@port-butler/con
 import {
   createCleanPlan,
   createKillPlan,
+  executeCleanPlan,
   executeKillPlan,
   explainPort,
   listExplainedPorts,
+  PORT_BUTLER_VERSION,
   runDoctor,
   type CleanPlan,
   type ExplainedPort,
   type KillPlan,
+  type KillResult,
 } from "@port-butler/core";
 import { openLocalhost } from "@port-butler/platform";
 import { tuiTheme } from "@port-butler/theme";
@@ -45,7 +48,23 @@ type WorkspaceEntry = {
   accent: string;
   /** 是否仍在执行中。工作区会先展示命令卡片，再用该字段渲染加载状态。 */
   loading: boolean;
+  /** 可本地重绘的结构化结果，用于切换语言时刷新旧输出且不重复执行命令。 */
+  replay?: ReplayOutput;
 };
+
+type DoctorCheck = { name: string; ok: boolean; message: string };
+
+type ReplayOutput =
+  | { type: "help" }
+  | { type: "ports"; ports: ExplainedPort[] }
+  | { type: "why"; port: number; explained: ExplainedPort | null }
+  | { type: "clean"; plan: CleanPlan; results?: KillResult[] }
+  | { type: "protected"; ports: number[]; changedPort: number; action: "protect" | "unprotect" }
+  | { type: "kill"; plan: KillPlan; results?: KillResult[] }
+  | { type: "open"; url: string }
+  | { type: "doctor"; checks: DoctorCheck[] }
+  | { type: "ip"; addresses: LocalAddress[] }
+  | { type: "unknown"; commandLine: string };
 
 const PANEL = "#171717";
 const PANEL_LIGHT = "#1f1f1f";
@@ -77,7 +96,7 @@ const copy = {
     placeholderWork: '输入 slash 命令... "/why 3000"',
     tab: "Tab 补齐",
     languageKey: "Ctrl+L English",
-    palette: "ctrl+p 命令",
+    palette: "/help 命令",
     tipPrefix: "提示",
     tip: "命令前加 /，例如 /ls 扫描端口，/doctor 检查系统",
     statusTitle: "问候",
@@ -123,7 +142,7 @@ const copy = {
     placeholderWork: 'Type a slash command... "/why 3000"',
     tab: "Tab complete",
     languageKey: "Ctrl+L 中文",
-    palette: "ctrl+p commands",
+    palette: "/help commands",
     tipPrefix: "Tip",
     tip: "Prefix commands with /, for example /ls or /doctor",
     statusTitle: "Greeting",
@@ -167,7 +186,18 @@ const copy = {
 } as const;
 
 const loadingFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const slashCommands = ["ls", "why", "kill", "protect", "unprotect", "clean", "open", "doctor", "ip", "help"];
+const slashCommands = [
+  "ls",
+  "why",
+  "kill",
+  "protect",
+  "unprotect",
+  "clean",
+  "open",
+  "doctor",
+  "ip",
+  "help",
+];
 const BORDER = "#555555";
 const HEADER = "#f2f2f2";
 const LOW = "#34d399";
@@ -190,6 +220,9 @@ export function App(props: StartTuiOptions) {
   const [statusLine, setStatusLine] = createSignal<string>(copy.zh.statusLine);
   const [busy, setBusy] = createSignal(false);
   const [loadingFrame, setLoadingFrame] = createSignal(0);
+  const [history, setHistory] = createSignal<string[]>([]);
+  const [historyIndex, setHistoryIndex] = createSignal<number | null>(null);
+  const [historyDraft, setHistoryDraft] = createSignal("");
   let promptInput: TextareaRenderable | undefined;
   let lastLanguageToggleAt = 0;
 
@@ -206,6 +239,18 @@ export function App(props: StartTuiOptions) {
     setLanguage(next);
     setStatusTitle(copy[next].statusTitle);
     setStatusLine(copy[next].languageStatus);
+    setEntries((items) =>
+      items.map((item) => {
+        if (!item.replay || item.loading) return item;
+        const rendered = renderReplay(item.replay, next);
+        return {
+          ...item,
+          thinking: rendered.thinking,
+          output: rendered.output,
+          mode: rendered.mode,
+        };
+      }),
+    );
   };
 
   const isEnterKey = (key: KeyEvent) =>
@@ -214,6 +259,12 @@ export function App(props: StartTuiOptions) {
     key.name === "linefeed" ||
     key.raw === "\r" ||
     key.raw === "\n";
+
+  const isHistoryPreviousKey = (key: KeyEvent) =>
+    key.name === "up" || key.name === "uparrow" || key.raw === "\u001b[A";
+
+  const isHistoryNextKey = (key: KeyEvent) =>
+    key.name === "down" || key.name === "downarrow" || key.raw === "\u001b[B";
 
   useKeyboard((key) => {
     if (key.name === "escape" || (key.ctrl && key.name === "c")) {
@@ -235,7 +286,13 @@ export function App(props: StartTuiOptions) {
   };
 
   const syncPromptFromInput = () => {
-    setPrompt(promptInput?.plainText ?? "");
+    const value = promptInput?.plainText ?? "";
+    setPrompt(value);
+    const index = historyIndex();
+    if (index !== null && value !== history()[index]) {
+      setHistoryIndex(null);
+      setHistoryDraft(value);
+    }
   };
 
   const handlePromptKeyDown = (key: KeyEvent) => {
@@ -250,6 +307,20 @@ export function App(props: StartTuiOptions) {
       key.preventDefault();
       key.stopPropagation();
       completePrompt();
+      return;
+    }
+
+    if (isHistoryPreviousKey(key)) {
+      key.preventDefault();
+      key.stopPropagation();
+      moveHistory(-1);
+      return;
+    }
+
+    if (isHistoryNextKey(key)) {
+      key.preventDefault();
+      key.stopPropagation();
+      moveHistory(1);
       return;
     }
 
@@ -273,6 +344,36 @@ export function App(props: StartTuiOptions) {
     setStatusLine(result.status);
   };
 
+  const moveHistory = (direction: -1 | 1) => {
+    const items = history();
+    if (items.length === 0) return;
+    const current = historyIndex();
+    if (current === null) setHistoryDraft(promptInput?.plainText ?? prompt());
+    const next =
+      current === null
+        ? direction === -1
+          ? items.length - 1
+          : 0
+        : Math.max(0, Math.min(items.length - 1, current + direction));
+
+    if (current !== null && direction === 1 && current === items.length - 1) {
+      setHistoryIndex(null);
+      setPromptInputText(historyDraft());
+      setPrompt(historyDraft());
+      setStatusLine(language() === "zh" ? "已回到当前输入" : "Returned to current input");
+      return;
+    }
+
+    setHistoryIndex(next);
+    setPromptInputText(items[next] ?? "");
+    setPrompt(items[next] ?? "");
+    setStatusLine(
+      language() === "zh"
+        ? `历史命令 ${next + 1}/${items.length}`
+        : `History ${next + 1}/${items.length}`,
+    );
+  };
+
   const submitFromPrompt = () => {
     setTimeout(() => {
       setTimeout(() => {
@@ -286,6 +387,9 @@ export function App(props: StartTuiOptions) {
   const submit = async (raw: string) => {
     const command = raw.trim();
     if (!command || busy()) return;
+    setHistory((items) => (items.at(-1) === command ? items : [...items, command]));
+    setHistoryIndex(null);
+    setHistoryDraft("");
     setBusy(true);
     setPrompt("");
     setPromptInputText("");
@@ -317,6 +421,7 @@ export function App(props: StartTuiOptions) {
         thinking: result.thinking,
         output: result.output,
         mode: result.mode,
+        replay: result.replay,
         seconds: `${Math.max(0.1, (performance.now() - started) / 1000).toFixed(1)}s`,
         loading: false,
       });
@@ -342,7 +447,10 @@ export function App(props: StartTuiOptions) {
     setEntries((items) => [...items, entry]);
   };
 
-  const updateEntry = (id: number, patch: Partial<Omit<WorkspaceEntry, "id" | "input" | "accent">>) => {
+  const updateEntry = (
+    id: number,
+    patch: Partial<Omit<WorkspaceEntry, "id" | "input" | "accent">>,
+  ) => {
     setEntries((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   };
 
@@ -415,9 +523,9 @@ function HomeScreen(props: {
         />
         <box width={84} flexDirection="row" justifyContent="flex-end" marginTop={1}>
           <text fg={TEXT}>{props.text.tab}</text>
-          <text fg={DIM}>   </text>
+          <text fg={DIM}> </text>
           <text fg={TEXT}>{props.text.languageKey}</text>
-          <text fg={DIM}>   </text>
+          <text fg={DIM}> </text>
           <text fg={TEXT}>{props.text.palette}</text>
         </box>
         <box marginTop={4} flexDirection="row">
@@ -428,7 +536,7 @@ function HomeScreen(props: {
       <box flexGrow={1} />
       <box width="100%" paddingX={1} flexDirection="row" justifyContent="space-between">
         <text fg={DIM}>~</text>
-        <text fg={DIM}>0.1.0</text>
+        <text fg={DIM}>{PORT_BUTLER_VERSION}</text>
       </box>
     </box>
   );
@@ -460,7 +568,14 @@ function WorkspaceScreen(props: {
 
   return (
     <box width="100%" height="100%" backgroundColor={BACKGROUND} flexDirection="row">
-      <box flexGrow={1} minHeight={0} paddingLeft={1} paddingRight={1} paddingTop={1} flexDirection="column">
+      <box
+        flexGrow={1}
+        minHeight={0}
+        paddingLeft={1}
+        paddingRight={1}
+        paddingTop={1}
+        flexDirection="column"
+      >
         <scrollbox
           ref={(r) => (scroll = r)}
           viewportOptions={{ paddingRight: 1 }}
@@ -494,10 +609,16 @@ function WorkspaceScreen(props: {
           accent={ORANGE}
           text={props.text}
         />
-        <box width="100%" flexDirection="row" justifyContent="flex-end" marginTop={1} marginBottom={1}>
+        <box
+          width="100%"
+          flexDirection="row"
+          justifyContent="flex-end"
+          marginTop={1}
+          marginBottom={1}
+        >
           <box flexDirection="row" alignItems="center">
             <text fg={TEXT}>{props.text.commandState}</text>
-            <text fg={DIM}>  ·  </text>
+            <text fg={DIM}> · </text>
             <text fg={props.busy ? ORANGE : tuiTheme.safe}>
               {props.busy ? loadingFrames[props.loadingFrame % loadingFrames.length] : "●"}
             </text>
@@ -506,9 +627,9 @@ function WorkspaceScreen(props: {
           <box flexGrow={1} />
           <box flexDirection="row" alignItems="center">
             <text fg={TEXT}>{props.text.tab}</text>
-            <text fg={DIM}>  </text>
+            <text fg={DIM}> </text>
             <text fg={TEXT}>{props.text.languageKey}</text>
-            <text fg={DIM}>  </text>
+            <text fg={DIM}> </text>
             <text fg={TEXT}>{props.text.palette}</text>
           </box>
         </box>
@@ -613,7 +734,7 @@ function PromptPanel(props: {
           <text fg={ORANGE}>{props.text.modePlan}</text>
           <text fg={DIM}> · </text>
           <text fg={TEXT}>/ls</text>
-          <text fg={DIM}>  /why 3000  /clean --dry-run  </text>
+          <text fg={DIM}> /why 3000 /clean --dry-run </text>
           <text fg={DIM}>{props.text.slashHint}</text>
         </box>
       </box>
@@ -651,7 +772,7 @@ function TranscriptEntry(props: {
         </box>
       </Show>
       <box marginTop={1} marginBottom={1} flexDirection="row">
-        <text fg={props.entry.accent}>▣  </text>
+        <text fg={props.entry.accent}>▣ </text>
         <text fg={TEXT}>
           {props.entry.mode === "plan" ? props.text.modePlan : props.text.modeBuild}
         </text>
@@ -694,19 +815,20 @@ function InfoRail(props: {
   text: (typeof copy)[Language];
 }) {
   const protectedCount = () => props.protectedPorts.length;
-  const riskyCount = () => props.ports.filter((port) => port.risk === "high" || port.risk === "blocked").length;
+  const riskyCount = () =>
+    props.ports.filter((port) => port.risk === "high" || port.risk === "blocked").length;
   const devCount = () => props.ports.filter((port) => port.detection.isDevServer).length;
   const infraCount = () => props.ports.filter((port) => port.detection.isInfrastructure).length;
 
   return (
-    <box width={42} height="100%" backgroundColor="#151515" padding={1} flexDirection="column">
-      <box flexDirection="column">
+    <box width={42} height="100%" padding={1} flexDirection="column">
+      {/* <box flexDirection="column">
         <text fg={TEXT}>{props.text.overview}</text>
         <text fg={DIM}> </text>
         <text fg={DIM}>{props.statusLine}</text>
-      </box>
+      </box> */}
 
-      <box marginTop={1} backgroundColor={PANEL_LIGHT} padding={1} flexDirection="column">
+      <box marginTop={0} backgroundColor={PANEL_LIGHT} padding={1} flexDirection="column">
         <text fg={TEXT}>{props.text.ports}</text>
         <MetricLine label={props.text.detected} value={props.ports.length} />
         <MetricLine label={props.text.protectedCount} value={protectedCount()} />
@@ -718,7 +840,7 @@ function InfoRail(props: {
       <box marginTop={1} backgroundColor={PANEL_LIGHT} padding={1} flexDirection="column">
         <text fg={TEXT}>{props.text.protectedPorts}</text>
         <text fg={DIM}> </text>
-        <text fg={DIM}>22  80  443  5432  6379  3306  27017</text>
+        <text fg={DIM}>22 80 443 5432 6379 3306 27017</text>
       </box>
 
       <box flexGrow={1} />
@@ -739,7 +861,7 @@ function InfoRail(props: {
 
       <box marginTop={1} flexDirection="column">
         {/* <text fg={TEXT}>/~</text> */}
-        <text fg={tuiTheme.safe}>• Port Butler 0.1.0</text>
+        <text fg={tuiTheme.safe}>• Port Butler {PORT_BUTLER_VERSION}</text>
       </box>
     </box>
   );
@@ -775,6 +897,7 @@ async function runTuiCommand(
   mode: "plan" | "build";
   ports?: ExplainedPort[];
   protectedPorts?: number[];
+  replay?: ReplayOutput;
 }> {
   const zh = language === "zh";
   const parts = commandLine.split(/\s+/).filter(Boolean);
@@ -793,6 +916,7 @@ async function runTuiCommand(
       thinking: zh ? "用户需要可用命令列表，我会保持简洁。" : "The user needs the command list.",
       mode: "plan",
       protectedPorts: config.protectedPorts,
+      replay: { type: "help" },
       output: zh
         ? [
             "命令：/ls, /why <端口>, /kill <端口> --dry-run, /protect <端口>, /unprotect <端口>",
@@ -818,6 +942,7 @@ async function runTuiCommand(
       mode: "build",
       ports: scanned,
       protectedPorts: config.protectedPorts,
+      replay: { type: "ports", ports: scanned },
       output: renderPortLines(scanned, zh),
     };
   }
@@ -839,18 +964,46 @@ async function runTuiCommand(
         : "The user wants the process and detection reasons.",
       mode: "plan",
       protectedPorts: config.protectedPorts,
+      replay: { type: "why", port, explained },
       output: explained ? renderWhyLines(explained, zh) : renderFreePortLines(port, zh),
     };
   }
 
   if (command === "clean") {
+    const confirmed = args.includes("--yes");
+    const dryRun = args.includes("--dry-run") || !confirmed;
     const plan = await Effect.runPromise(
       createCleanPlan(config, {
-        dryRun: true,
+        dryRun,
         includeInfra: args.includes("--include-infra"),
-        yes: args.includes("--yes"),
+        yes: confirmed,
       }),
     );
+    if (confirmed && !args.includes("--dry-run")) {
+      const results = await Effect.runPromise(
+        executeCleanPlan(plan, config, {
+          yes: true,
+          force: args.includes("--force") || config.kill.force,
+          tree: config.kill.tree,
+          graceMs: config.kill.graceMs,
+        }),
+      );
+      const refreshed = await Effect.runPromise(listExplainedPorts(config));
+      return {
+        title: zh ? "清理执行" : "Clean",
+        status: zh
+          ? `已处理 ${results.length} 个清理目标`
+          : `Handled ${results.length} clean targets`,
+        thinking: zh
+          ? "用户已经显式确认清理，因此执行候选计划并刷新端口列表。"
+          : "The user confirmed clean, so executing the candidate plan and refreshing ports.",
+        mode: "build",
+        ports: refreshed,
+        protectedPorts: config.protectedPorts,
+        replay: { type: "clean", plan, results },
+        output: [...renderCleanLines(plan, zh), ...renderKillExecutionLines(results, zh)],
+      };
+    }
     return {
       title: zh ? "清理预览" : "Clean Preview",
       status: zh
@@ -861,6 +1014,7 @@ async function runTuiCommand(
         : "clean previews first and skips infrastructure by default.",
       mode: "plan",
       protectedPorts: config.protectedPorts,
+      replay: { type: "clean", plan },
       output: renderCleanLines(plan, zh),
     };
   }
@@ -881,6 +1035,12 @@ async function runTuiCommand(
       mode: "plan",
       ports: refreshed,
       protectedPorts: config.protectedPorts,
+      replay: {
+        type: "protected",
+        ports: config.protectedPorts,
+        changedPort: port,
+        action: "protect",
+      },
       output: renderProtectedPortLines(config.protectedPorts, zh, port, "protect"),
     };
   }
@@ -899,6 +1059,12 @@ async function runTuiCommand(
       mode: "plan",
       ports: refreshed,
       protectedPorts: config.protectedPorts,
+      replay: {
+        type: "protected",
+        ports: config.protectedPorts,
+        changedPort: port,
+        action: "unprotect",
+      },
       output: renderProtectedPortLines(config.protectedPorts, zh, port, "unprotect"),
     };
   }
@@ -908,14 +1074,22 @@ async function runTuiCommand(
     const plan = await Effect.runPromise(createKillPlan(port, config));
     if (args.includes("--yes")) {
       const results = await Effect.runPromise(
-        executeKillPlan(plan, { yes: true, force: args.includes("--force") }),
+        executeKillPlan(plan, {
+          yes: true,
+          force: args.includes("--force") || config.kill.force,
+          tree: config.kill.tree,
+          graceMs: config.kill.graceMs,
+        }),
       );
       return {
         title: "Kill",
         status: zh ? `端口 ${port} 的 kill 计划已执行` : `Kill plan for ${port} executed`,
-        thinking: zh ? "用户显式确认后才执行 kill 计划。" : "Executing only after explicit confirmation.",
+        thinking: zh
+          ? "用户显式确认后才执行 kill 计划。"
+          : "Executing only after explicit confirmation.",
         mode: "build",
         protectedPorts: config.protectedPorts,
+        replay: { type: "kill", plan, results },
         output: renderKillExecutionLines(results, zh),
       };
     }
@@ -927,6 +1101,7 @@ async function runTuiCommand(
         : "Dangerous operations are planned first; nothing is killed here.",
       mode: "plan",
       protectedPorts: config.protectedPorts,
+      replay: { type: "kill", plan },
       output: renderKillLines(plan, zh),
     };
   }
@@ -941,6 +1116,7 @@ async function runTuiCommand(
       thinking: zh ? "正在调用系统默认浏览器。" : "Opening with the system browser.",
       mode: "build",
       protectedPorts: config.protectedPorts,
+      replay: { type: "open", url },
       output: [zh ? `已打开 ${url}` : `Opened ${url}`],
     };
   }
@@ -953,6 +1129,7 @@ async function runTuiCommand(
       thinking: zh ? "正在检查平台命令和运行环境。" : "Checking platform commands and runtime.",
       mode: "build",
       protectedPorts: config.protectedPorts,
+      replay: { type: "doctor", checks },
       output: checks.map((check) => `${check.ok ? "OK" : "FAIL"}  ${check.name}  ${check.message}`),
     };
   }
@@ -961,12 +1138,15 @@ async function runTuiCommand(
     const addresses = listLocalAddresses();
     return {
       title: zh ? "本机 IP" : "Local IP",
-      status: zh ? `发现 ${addresses.length} 个本机地址` : `Found ${addresses.length} local addresses`,
+      status: zh
+        ? `发现 ${addresses.length} 个本机地址`
+        : `Found ${addresses.length} local addresses`,
       thinking: zh
         ? "正在读取系统网络接口，展示类似 ipconfig/ifconfig 的本机地址摘要。"
         : "Reading OS network interfaces for an ipconfig-like summary.",
       mode: "build",
       protectedPorts: config.protectedPorts,
+      replay: { type: "ip", addresses },
       output: renderIpLines(addresses, zh),
     };
   }
@@ -977,11 +1157,131 @@ async function runTuiCommand(
     thinking: zh ? "没有识别这个命令，因此给出下一步建议。" : "The command is unknown.",
     mode: "plan",
     protectedPorts: config.protectedPorts,
+    replay: { type: "unknown", commandLine },
     output: [
       zh ? `未知命令：${commandLine}` : `Unknown command: ${commandLine}`,
-      zh ? "下一步：输入 /help 查看可用命令，命令前建议加 /。" : "Next: type /help to see available commands.",
+      zh
+        ? "下一步：输入 /help 查看可用命令，命令前建议加 /。"
+        : "Next: type /help to see available commands.",
     ],
   };
+}
+
+function renderReplay(
+  replay: ReplayOutput,
+  language: Language,
+): { thinking: string; output: OutputLine[]; mode: "plan" | "build" } {
+  const zh = language === "zh";
+  switch (replay.type) {
+    case "help":
+      return {
+        thinking: zh ? "用户需要可用命令列表，我会保持简洁。" : "The user needs the command list.",
+        mode: "plan",
+        output: zh
+          ? [
+              "命令：/ls, /why <端口>, /kill <端口> --dry-run, /protect <端口>, /unprotect <端口>",
+              "更多：/clean --dry-run, /open <端口>, /doctor, /ip, /help",
+              "安全：kill 始终先生成计划，确认后再加 --yes 或 --force。",
+            ]
+          : [
+              "Commands: /ls, /why <port>, /kill <port> --dry-run, /protect <port>, /unprotect <port>",
+              "More: /clean --dry-run, /open <port>, /doctor, /ip, /help",
+              "Safety: kill always creates a plan first. Add --yes or --force only after review.",
+            ],
+      };
+    case "ports":
+      return {
+        thinking: zh
+          ? "正在扫描本机监听端口，并按保护策略标注风险。"
+          : "Scanning local listening ports and marking risk.",
+        mode: "build",
+        output: renderPortLines(replay.ports, zh),
+      };
+    case "why":
+      return {
+        thinking: zh
+          ? "用户想知道端口背后的进程和识别依据。"
+          : "The user wants the process and detection reasons.",
+        mode: "plan",
+        output: replay.explained
+          ? renderWhyLines(replay.explained, zh)
+          : renderFreePortLines(replay.port, zh),
+      };
+    case "clean":
+      return {
+        thinking: replay.results
+          ? zh
+            ? "用户已经显式确认清理，因此执行候选计划并刷新端口列表。"
+            : "The user confirmed clean, so executing the candidate plan and refreshing ports."
+          : zh
+            ? "clean 默认只做预览，并排除 Docker、Postgres、Redis 等基础设施。"
+            : "clean previews first and skips infrastructure by default.",
+        mode: replay.results ? "build" : "plan",
+        output: replay.results
+          ? [...renderCleanLines(replay.plan, zh), ...renderKillExecutionLines(replay.results, zh)]
+          : renderCleanLines(replay.plan, zh),
+      };
+    case "protected":
+      return {
+        thinking:
+          replay.action === "protect"
+            ? zh
+              ? "保护端口会写入配置，后续 kill 和 clean 都会被策略层阻止。"
+              : "Protected ports are saved to config and blocked by kill/clean policy."
+            : zh
+              ? "已更新保护端口配置。移除保护不代表可以直接 kill，仍会经过风险策略。"
+              : "Protection config updated. Removing protection still keeps normal risk checks.",
+        mode: "plan",
+        output: renderProtectedPortLines(replay.ports, zh, replay.changedPort, replay.action),
+      };
+    case "kill":
+      return {
+        thinking: replay.results
+          ? zh
+            ? "用户显式确认后才执行 kill 计划。"
+            : "Executing only after explicit confirmation."
+          : zh
+            ? "危险操作必须先生成计划，此处不会直接终止进程。"
+            : "Dangerous operations are planned first; nothing is killed here.",
+        mode: replay.results ? "build" : "plan",
+        output: replay.results
+          ? renderKillExecutionLines(replay.results, zh)
+          : renderKillLines(replay.plan, zh),
+      };
+    case "open":
+      return {
+        thinking: zh ? "正在调用系统默认浏览器。" : "Opening with the system browser.",
+        mode: "build",
+        output: [zh ? `已打开 ${replay.url}` : `Opened ${replay.url}`],
+      };
+    case "doctor":
+      return {
+        thinking: zh ? "正在检查平台命令和运行环境。" : "Checking platform commands and runtime.",
+        mode: "build",
+        output: replay.checks.map(
+          (check) => `${check.ok ? "OK" : "FAIL"}  ${check.name}  ${check.message}`,
+        ),
+      };
+    case "ip":
+      return {
+        thinking: zh
+          ? "正在读取系统网络接口，展示类似 ipconfig/ifconfig 的本机地址摘要。"
+          : "Reading OS network interfaces for an ipconfig-like summary.",
+        mode: "build",
+        output: renderIpLines(replay.addresses, zh),
+      };
+    case "unknown":
+      return {
+        thinking: zh ? "没有识别这个命令，因此给出下一步建议。" : "The command is unknown.",
+        mode: "plan",
+        output: [
+          zh ? `未知命令：${replay.commandLine}` : `Unknown command: ${replay.commandLine}`,
+          zh
+            ? "下一步：输入 /help 查看可用命令，命令前建议加 /。"
+            : "Next: type /help to see available commands.",
+        ],
+      };
+  }
 }
 
 /**
@@ -997,7 +1297,10 @@ function normalizeCommandToken(value: string | undefined): string | undefined {
  * 实现类似 Linux shell 的单词补齐：Tab 只补齐第一个 slash 命令单词。
  * 多个候选存在时会补齐公共前缀；没有公共前缀时在状态栏展示候选列表。
  */
-function completeSlashCommand(value: string, language: Language): { value: string; status: string } {
+function completeSlashCommand(
+  value: string,
+  language: Language,
+): { value: string; status: string } {
   const zh = language === "zh";
   const leading = value.match(/^\s*/)?.[0] ?? "";
   const rest = value.slice(leading.length);
@@ -1016,7 +1319,9 @@ function completeSlashCommand(value: string, language: Language): { value: strin
   if (token.length === 0) {
     return {
       value: `${leading}/`,
-      status: zh ? "继续输入命令，或再按 Tab 查看候选" : "Type a command, or press Tab again for matches",
+      status: zh
+        ? "继续输入命令，或再按 Tab 查看候选"
+        : "Type a command, or press Tab again for matches",
     };
   }
 
@@ -1128,7 +1433,10 @@ function renderIpTable(
   }));
   const normalizedHeaders = headers.map(normalizeTableCell);
   const widths = normalizedHeaders.map((header, index) =>
-    Math.max(displayWidth(header), ...normalizedRows.map((row) => displayWidth(row.cells[index] ?? ""))),
+    Math.max(
+      displayWidth(header),
+      ...normalizedRows.map((row) => displayWidth(row.cells[index] ?? "")),
+    ),
   );
   const separator = `+${widths.map((width) => "-".repeat(width + 2)).join("+")}+`;
   return [
@@ -1170,7 +1478,15 @@ function renderProtectedPortLines(
   ] satisfies Array<[string, string | number, string]>;
 
   return [
-    sectionTitle(action === "protect" ? (zh ? "保护端口" : "Protect Port") : zh ? "取消保护" : "Unprotect Port"),
+    sectionTitle(
+      action === "protect"
+        ? zh
+          ? "保护端口"
+          : "Protect Port"
+        : zh
+          ? "取消保护"
+          : "Unprotect Port",
+    ),
     ...renderKeyValueTable(rows),
   ];
 }
@@ -1188,7 +1504,8 @@ function parseTuiPort(value: string | undefined, zh: boolean): number {
 }
 
 function renderPortLines(ports: ExplainedPort[], zh: boolean): OutputLine[] {
-  if (ports.length === 0) return [zh ? "当前没有发现正在监听的本地端口。" : "No local listeners found."];
+  if (ports.length === 0)
+    return [zh ? "当前没有发现正在监听的本地端口。" : "No local listeners found."];
   const rows = ports.map((item) => ({
     cells: [
       item.binding.localPort,
@@ -1226,7 +1543,10 @@ function renderPortTable(
   }));
   const normalizedHeaders = headers.map(normalizeTableCell);
   const widths = normalizedHeaders.map((header, index) =>
-    Math.max(displayWidth(header), ...normalizedRows.map((row) => displayWidth(row.cells[index] ?? ""))),
+    Math.max(
+      displayWidth(header),
+      ...normalizedRows.map((row) => displayWidth(row.cells[index] ?? "")),
+    ),
   );
   const separator = `+${widths.map((width) => "-".repeat(width + 2)).join("+")}+`;
   const renderHeader = () => colorTableRow(normalizedHeaders, widths, () => HEADER);
@@ -1254,7 +1574,10 @@ function colorTableRow(
   for (let index = 0; index < cells.length; index += 1) {
     const cell = cells[index] ?? "";
     segments.push({ text: " " });
-    segments.push({ text: padDisplayEnd(cell, widths[index] ?? 0), color: colorForCell(index, cell) });
+    segments.push({
+      text: padDisplayEnd(cell, widths[index] ?? 0),
+      color: colorForCell(index, cell),
+    });
     segments.push({ text: " " });
     segments.push({ text: "|", color: BORDER });
   }
@@ -1266,11 +1589,15 @@ function colorTableRow(
  */
 function portCellColor(port: ExplainedPort, index: number): string {
   if (index === 0) return BLUE;
-  if (index === 2) return port.detection.isInfrastructure ? MEDIUM : port.detection.isDevServer ? LOW : DIM;
+  if (index === 2)
+    return port.detection.isInfrastructure ? MEDIUM : port.detection.isDevServer ? LOW : DIM;
   if (index === 3) return riskColor(port.risk);
   if (index === 4) return port.protected ? LOW : DIM;
   if (index === 5) return port.zombieScore >= 60 ? HIGH : port.zombieScore >= 30 ? MEDIUM : DIM;
-  if (index === 6) return port.binding.localAddress === "127.0.0.1" || port.binding.localAddress === "::1" ? LOW : DIM;
+  if (index === 6)
+    return port.binding.localAddress === "127.0.0.1" || port.binding.localAddress === "::1"
+      ? LOW
+      : DIM;
   if (index === 7) return TEXT;
   return TEXT;
 }
@@ -1287,7 +1614,9 @@ function riskColor(risk: ExplainedPort["risk"]): string {
  * 统一转换后可以保证 TUI 表格稳定对齐。
  */
 function normalizeTableCell(value: string | number | null | undefined): string {
-  const text = String(value ?? "-").replace(/\s+/g, " ").trim();
+  const text = String(value ?? "-")
+    .replace(/\s+/g, " ")
+    .trim();
   return text.length > 0 ? text : "-";
 }
 
@@ -1330,32 +1659,40 @@ function renderWhyLines(port: ExplainedPort, zh: boolean): OutputLine[] {
   const startedAt = port.process.startedAt?.toLocaleString() ?? "-";
   return [
     sectionTitle(zh ? "端口详情" : "Port Detail"),
-    ...renderKeyValueTable(
-      [
-        [zh ? "端口" : "Port", port.binding.localPort, BLUE],
-        [zh ? "地址" : "Address", port.binding.localAddress, addressColor(port.binding.localAddress)],
-        [zh ? "协议" : "Protocol", port.binding.protocol.toUpperCase(), DIM],
-        [zh ? "进程" : "Process", port.process.name, TEXT],
-        ["PID", port.process.pid, BLUE],
-        ["PPID", port.process.ppid ?? "-", DIM],
-        [zh ? "用户" : "User", port.process.user ?? "-", DIM],
-        [zh ? "启动时间" : "Started", startedAt, DIM],
-        [zh ? "工作目录" : "CWD", port.process.cwd ?? "-", DIM],
-        [zh ? "命令行" : "Command", port.process.commandLine ?? "-", DIM],
-      ],
-    ),
+    ...renderKeyValueTable([
+      [zh ? "端口" : "Port", port.binding.localPort, BLUE],
+      [zh ? "地址" : "Address", port.binding.localAddress, addressColor(port.binding.localAddress)],
+      [zh ? "协议" : "Protocol", port.binding.protocol.toUpperCase(), DIM],
+      [zh ? "进程" : "Process", port.process.name, TEXT],
+      ["PID", port.process.pid, BLUE],
+      ["PPID", port.process.ppid ?? "-", DIM],
+      [zh ? "用户" : "User", port.process.user ?? "-", DIM],
+      [zh ? "启动时间" : "Started", startedAt, DIM],
+      [zh ? "工作目录" : "CWD", port.process.cwd ?? "-", DIM],
+      [zh ? "命令行" : "Command", port.process.commandLine ?? "-", DIM],
+    ]),
     sectionTitle(zh ? "判断结果" : "Decision"),
-    ...renderKeyValueTable(
+    ...renderKeyValueTable([
+      [zh ? "类型" : "Kind", port.detection.kind, kindColor(port)],
       [
-        [zh ? "类型" : "Kind", port.detection.kind, kindColor(port)],
-        [zh ? "置信度" : "Confidence", `${port.detection.confidence}%`, confidenceColor(port.detection.confidence)],
-        [zh ? "风险" : "Risk", port.risk, riskColor(port.risk)],
-        [zh ? "受保护" : "Protected", protectedText, port.protected ? LOW : DIM],
-        [zh ? "僵尸评分" : "Zombie score", port.zombieScore, zombieScoreColor(port.zombieScore)],
-        [zh ? "开发服务" : "Dev server", boolText(port.detection.isDevServer, zh), port.detection.isDevServer ? LOW : DIM],
-        [zh ? "基础设施" : "Infrastructure", boolText(port.detection.isInfrastructure, zh), port.detection.isInfrastructure ? MEDIUM : DIM],
+        zh ? "置信度" : "Confidence",
+        `${port.detection.confidence}%`,
+        confidenceColor(port.detection.confidence),
       ],
-    ),
+      [zh ? "风险" : "Risk", port.risk, riskColor(port.risk)],
+      [zh ? "受保护" : "Protected", protectedText, port.protected ? LOW : DIM],
+      [zh ? "僵尸评分" : "Zombie score", port.zombieScore, zombieScoreColor(port.zombieScore)],
+      [
+        zh ? "开发服务" : "Dev server",
+        boolText(port.detection.isDevServer, zh),
+        port.detection.isDevServer ? LOW : DIM,
+      ],
+      [
+        zh ? "基础设施" : "Infrastructure",
+        boolText(port.detection.isInfrastructure, zh),
+        port.detection.isInfrastructure ? MEDIUM : DIM,
+      ],
+    ]),
     sectionTitle(zh ? "依据" : "Reasons"),
     ...renderReasonList(port.detection.reasons, zh),
     ...renderReasonList(port.zombieReasons, zh),
@@ -1373,7 +1710,12 @@ function renderFreePortLines(port: number, zh: boolean): OutputLine[] {
     ]),
     [
       { text: zh ? "建议：" : "Next: ", color: HEADER },
-      { text: zh ? "可以直接启动你的开发服务，或输入 /ls 刷新端口列表。" : "Start your dev server or run /ls to refresh.", color: DIM },
+      {
+        text: zh
+          ? "可以直接启动你的开发服务，或输入 /ls 刷新端口列表。"
+          : "Start your dev server or run /ls to refresh.",
+        color: DIM,
+      },
     ],
   ];
 }
@@ -1419,7 +1761,8 @@ function renderWhyAdvice(port: ExplainedPort, zh: boolean): OutputLine[] {
 }
 
 function renderReasonList(reasons: string[], zh: boolean): OutputLine[] {
-  if (reasons.length === 0) return [[{ text: zh ? "· 暂无额外依据" : "· No extra reasons", color: DIM }]];
+  if (reasons.length === 0)
+    return [[{ text: zh ? "· 暂无额外依据" : "· No extra reasons", color: DIM }]];
   return reasons.map((reason) => [
     { text: "· ", color: BORDER },
     { text: reason, color: DIM },
@@ -1499,7 +1842,10 @@ function renderCleanLines(plan: CleanPlan, zh: boolean): OutputLine[] {
   ];
 }
 
-function renderKillExecutionLines(results: Array<{ pid: number; ok: boolean; message: string }>, zh: boolean): OutputLine[] {
+function renderKillExecutionLines(
+  results: Array<{ pid: number; ok: boolean; message: string }>,
+  zh: boolean,
+): OutputLine[] {
   return [
     sectionTitle(zh ? "执行结果" : "Execution"),
     ...results.map((result) => [
@@ -1515,14 +1861,20 @@ function renderKillLines(plan: KillPlan, zh: boolean): OutputLine[] {
   return [
     sectionTitle("Kill Plan"),
     [
-      { text: plan.blocked ? "BLOCKED " : plan.requiresConfirmation ? "REVIEW  " : "READY   ", color: plan.blocked ? BLOCKED : plan.requiresConfirmation ? MEDIUM : LOW },
+      {
+        text: plan.blocked ? "BLOCKED " : plan.requiresConfirmation ? "REVIEW  " : "READY   ",
+        color: plan.blocked ? BLOCKED : plan.requiresConfirmation ? MEDIUM : LOW,
+      },
       { text: plan.message, color: TEXT },
     ],
     ...renderKillTargetTable(plan.targets, zh),
     sectionTitle(zh ? "建议" : "Next"),
     plan.blocked
       ? [
-          { text: zh ? "该计划被保护策略阻止。" : "This plan is blocked by protection policy.", color: BLOCKED },
+          {
+            text: zh ? "该计划被保护策略阻止。" : "This plan is blocked by protection policy.",
+            color: BLOCKED,
+          },
         ]
       : plan.requiresConfirmation
         ? [
@@ -1535,7 +1887,9 @@ function renderKillLines(plan: KillPlan, zh: boolean): OutputLine[] {
           ]
         : [
             {
-              text: zh ? "低风险目标，可输入 /kill <端口> --yes 执行。" : "Low risk target. Type /kill <port> --yes to execute.",
+              text: zh
+                ? "低风险目标，可输入 /kill <端口> --yes 执行。"
+                : "Low risk target. Type /kill <port> --yes to execute.",
               color: DIM,
             },
           ],
@@ -1544,7 +1898,14 @@ function renderKillLines(plan: KillPlan, zh: boolean): OutputLine[] {
 
 function renderKillTargetTable(targets: KillPlan["targets"], zh: boolean): OutputLine[] {
   const rows = targets.map((target) => ({
-    cells: [target.port, target.pid, target.name, target.kind, target.risk, target.reasons.join("; ") || "-"],
+    cells: [
+      target.port,
+      target.pid,
+      target.name,
+      target.kind,
+      target.risk,
+      target.reasons.join("; ") || "-",
+    ],
     target,
   }));
   const headers = ["PORT", "PID", "PROCESS", "KIND", "RISK", zh ? "REASON" : "REASON"];
@@ -1553,14 +1914,21 @@ function renderKillTargetTable(targets: KillPlan["targets"], zh: boolean): Outpu
     target: row.target,
   }));
   const widths = headers.map((header, index) =>
-    Math.max(displayWidth(header), ...normalizedRows.map((row) => displayWidth(row.cells[index] ?? ""))),
+    Math.max(
+      displayWidth(header),
+      ...normalizedRows.map((row) => displayWidth(row.cells[index] ?? "")),
+    ),
   );
   const separator = `+${widths.map((width) => "-".repeat(width + 2)).join("+")}+`;
   return [
     [{ text: separator, color: BORDER }],
     colorTableRow(headers, widths, () => HEADER),
     [{ text: separator, color: BORDER }],
-    ...normalizedRows.map((row) => colorTableRow(row.cells, widths, (index) => (index === 4 ? riskColor(row.target.risk) : index === 0 || index === 1 ? BLUE : TEXT))),
+    ...normalizedRows.map((row) =>
+      colorTableRow(row.cells, widths, (index) =>
+        index === 4 ? riskColor(row.target.risk) : index === 0 || index === 1 ? BLUE : TEXT,
+      ),
+    ),
     [{ text: separator, color: BORDER }],
   ];
 }

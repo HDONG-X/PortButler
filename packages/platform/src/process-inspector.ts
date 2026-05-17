@@ -9,8 +9,22 @@ import { parseCimProcessJson } from "./windows/powershell";
  */
 export function inspectProcess(pid: number): Effect.Effect<PlatformProcessInfo, Error> {
   if (process.platform === "darwin") {
-    return Effect.map(runShell("ps", ["-p", String(pid), "-o", "pid=", "-o", "ppid=", "-o", "comm=", "-o", "etime=", "-o", "args="]), (r) =>
-      parseMacPs(r.stdout),
+    return Effect.map(
+      runShell("ps", [
+        "-p",
+        String(pid),
+        "-o",
+        "pid=",
+        "-o",
+        "ppid=",
+        "-o",
+        "comm=",
+        "-o",
+        "etime=",
+        "-o",
+        "args=",
+      ]),
+      (r) => parseMacPs(r.stdout),
     );
   }
   if (process.platform === "win32") {
@@ -19,5 +33,7 @@ export function inspectProcess(pid: number): Effect.Effect<PlatformProcessInfo, 
       parseCimProcessJson(r.stdout, pid),
     );
   }
-  return Effect.fail(new Error("当前平台暂不支持进程详情读取。下一步：请在 macOS 或 Windows 上运行。"));
+  return Effect.fail(
+    new Error("当前平台暂不支持进程详情读取。下一步：请在 macOS 或 Windows 上运行。"),
+  );
 }

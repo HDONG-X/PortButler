@@ -10,8 +10,9 @@ import { renderJson } from "../output/json";
 export function openCommand(port: number, options: GlobalOptions): Effect.Effect<string, Error> {
   return Effect.gen(function* () {
     const config = yield* readConfig(options.configPath);
+    const json = options.json || config.output.defaultFormat === "json";
     const url = `${config.open.protocol}://${config.open.host}:${port}`;
     if (!options.dryRun) yield* openLocalhost(url);
-    return options.json ? renderJson({ url, opened: !options.dryRun }) : `已打开 ${url}`;
+    return json ? renderJson({ url, opened: !options.dryRun }) : `已打开 ${url}`;
   });
 }

@@ -135,6 +135,10 @@ export interface KillExecutionOptions {
   yes?: boolean;
   /** 是否允许强制终止。 */
   force?: boolean;
+  /** 是否终止子进程树。 */
+  tree?: boolean;
+  /** 优雅终止后的等待时长，预留给平台执行器使用。 */
+  graceMs?: number;
   /** 是否输出更多诊断信息。 */
   verbose?: boolean;
 }

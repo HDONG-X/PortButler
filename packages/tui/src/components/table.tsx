@@ -9,13 +9,15 @@ import { StatusPill } from "./status-pill";
 export function PortTable(props: { items: ExplainedPort[]; selected: number }) {
   return (
     <box flexDirection="column" width="100%">
-      <text fg={tuiTheme.dim}>PORT   PID     KIND       RISK       SCORE   PROCESS</text>
+      <text fg={tuiTheme.dim}>PORT PID KIND RISK SCORE PROCESS</text>
       <For each={props.items}>
         {(item, index) => {
           const selected = () => index() === props.selected;
           return (
             <box flexDirection="row" width="100%">
-              <text fg={selected() ? tuiTheme.focus : tuiTheme.dim}>{selected() ? "▌ " : "  "}</text>
+              <text fg={selected() ? tuiTheme.focus : tuiTheme.dim}>
+                {selected() ? "▌" : " "}
+              </text>
               <text fg={tuiTheme.text}>
                 {String(item.binding.localPort).padEnd(6)}
                 {String(item.process.pid).padEnd(8)}

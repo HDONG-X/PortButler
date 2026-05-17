@@ -11,13 +11,22 @@ import { renderCleanPlan, renderKillResult } from "../output/table";
 export function cleanCommand(options: GlobalOptions): Effect.Effect<string, Error> {
   return Effect.gen(function* () {
     const config = yield* readConfig(options.configPath);
+    const json = options.json || config.output.defaultFormat === "json";
     const plan = yield* createCleanPlan(config, {
       includeInfra: options.includeInfra,
       yes: options.yes,
       dryRun: options.dryRun,
     });
-    if (!options.yes || options.dryRun) return options.json ? renderJson(plan) : renderCleanPlan(plan);
-    const results = yield* executeCleanPlan(plan, config, { ...options, yes: true });
-    return options.json ? renderJson({ plan, results }) : `${renderCleanPlan(plan)}\n\n${renderKillResult(results)}`;
+    if (!options.yes || options.dryRun) return json ? renderJson(plan) : renderCleanPlan(plan);
+    const results = yield* executeCleanPlan(plan, config, {
+      ...options,
+      yes: true,
+      force: options.force || config.kill.force,
+      tree: config.kill.tree,
+      graceMs: config.kill.graceMs,
+    });
+    return json
+      ? renderJson({ plan, results })
+      : `${renderCleanPlan(plan)}\n\n${renderKillResult(results)}`;
   });
 }

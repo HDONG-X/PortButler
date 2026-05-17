@@ -10,8 +10,9 @@ import { parseNetstat } from "./windows/netstat";
  */
 export function listListeningPorts(): Effect.Effect<PlatformPortBinding[], Error> {
   if (process.platform === "darwin") {
-    return Effect.map(runShell("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN"], { allowFailure: true }), (r) =>
-      parseLsofListeningPorts(r.stdout),
+    return Effect.map(
+      runShell("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN"], { allowFailure: true }),
+      (r) => parseLsofListeningPorts(r.stdout),
     );
   }
   if (process.platform === "win32") {
@@ -21,10 +22,13 @@ export function listListeningPorts(): Effect.Effect<PlatformPortBinding[], Error
       Effect.map(runShell("powershell.exe", ["-NoProfile", "-Command", script]), (r) =>
         parseGetNetTcpConnectionJson(r.stdout),
       ),
-      () => Effect.map(runShell("netstat.exe", ["-ano", "-p", "tcp"]), (r) => parseNetstat(r.stdout)),
+      () =>
+        Effect.map(runShell("netstat.exe", ["-ano", "-p", "tcp"]), (r) => parseNetstat(r.stdout)),
     );
   }
   return Effect.fail(
-    new Error("当前平台暂不支持。原因：第一版只支持 macOS 与 Windows。下一步：请在受支持系统上运行。"),
+    new Error(
+      "当前平台暂不支持。原因：第一版只支持 macOS 与 Windows。下一步：请在受支持系统上运行。",
+    ),
   );
 }

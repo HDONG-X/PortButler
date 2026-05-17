@@ -11,6 +11,7 @@ export function uiCommand(options: GlobalOptions): Effect.Effect<string, Error> 
       await startTui({ configPath: options.configPath });
       return "";
     },
-    catch: (error) => new Error(`启动 TUI 失败。原因：${String(error)}。下一步：请先运行 pbt ls 验证基础功能。`),
+    catch: (error) =>
+      new Error(`启动 TUI 失败。原因：${String(error)}。下一步：请先运行 pbt ls 验证基础功能。`),
   });
 }

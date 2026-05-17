@@ -13,10 +13,16 @@ export const nodeDevCommandHints = [
   "bun --hot",
   "bun run dev",
   "tsx",
-  "serve",
+  " serve ",
 ];
 
 /**
  * 数据库和基础设施进程名关键字。默认高风险，clean 不会处理。
  */
-export const infrastructureNameHints = ["docker", "postgres", "postmaster", "redis-server", "redis"];
+export const infrastructureNameHints = [
+  "docker",
+  "postgres",
+  "postmaster",
+  "redis-server",
+  "redis",
+];

@@ -85,7 +85,8 @@ export function executeKillPlan(
           code: "CONFIRMATION_REQUIRED",
           message: "该 kill 计划需要确认。",
           reason: "目标不是低风险开发服务，直接终止可能影响 Docker、数据库或未知服务。",
-          suggestion: "请检查 pbt kill <port> --dry-run 的输出，确认后加 --yes；高风险目标还需要 --force。",
+          suggestion:
+            "请检查 pbt kill <port> --dry-run 的输出，确认后加 --yes；高风险目标还需要 --force。",
           exitCode: 6,
         }),
       );
@@ -110,7 +111,7 @@ export function executeKillPlan(
         killProcess(target.pid, {
           graceful: true,
           force: options.force === true,
-          tree: true,
+          tree: options.tree ?? true,
         }),
       { concurrency: 2 },
     );
