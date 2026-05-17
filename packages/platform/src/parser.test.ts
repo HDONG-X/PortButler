@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 平台命令解析测试。
+ * 使用 fixture 覆盖 Windows netstat/Get-NetTCPConnection 和 macOS lsof/ps 的文本解析。
+ * 测试把系统命令格式变化限制在 parser 层，保护 core 不受平台输出影响。
+ */
 import { describe, expect, test } from "bun:test";
 import { parseLsofListeningPorts } from "./macos/lsof";
 import { parseNetstat } from "./windows/netstat";

@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * TUI 布局组件。
+ * 提供可复用的面板外壳、标题区和内容容器，让不同屏幕保持一致的间距与边框风格。
+ * 组件只关心视觉结构，不直接读取端口或配置数据。
+ */
 import { keymap } from "../keymap";
 import { PORT_BUTLER_VERSION } from "@port-butler/core";
 import { tuiTheme } from "@port-butler/theme";

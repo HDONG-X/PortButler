@@ -1,4 +1,10 @@
 /**
+ * Port Butler 文件说明：
+ * platform 层系统模型。
+ * 定义监听端口、进程信息、命令执行器和 kill 结果等与操作系统交互相关的结构。
+ * 这些类型不包含业务风险判断，保持 platform 只表达事实。
+ */
+/**
  * 平台层的端口监听记录。与 core 模型结构兼容，但平台层不依赖 core。
  */
 export interface PlatformPortBinding {

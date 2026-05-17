@@ -1,4 +1,10 @@
 /**
+ * Port Butler 文件说明：
+ * Port Butler 领域错误模型。
+ * 统一记录错误 code、message、cause 和 nextStep，让不同 UI 可以用同一份错误结构渲染文本或 JSON。
+ * 底层未知错误会被包裹成 PortButlerError，减少跨包错误格式分裂。
+ */
+/**
  * Port Butler 的统一错误形状。所有面向用户的错误都必须包含中文原因和下一步建议。
  */
 export class PortButlerError extends Error {

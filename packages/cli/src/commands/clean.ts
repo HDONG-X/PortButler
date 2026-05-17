@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * CLI clean 子命令的命令层适配器。
+ * 它只负责读取配置、调用 core 生成清理计划、根据 --yes 决定是否执行，并把结果交给输出层格式化。
+ * 危险动作必须先经过 CleanPlan，因此这里不能直接扫描或终止进程。
+ */
 import { Effect } from "effect";
 import { readConfig } from "@port-butler/config";
 import { createCleanPlan, executeCleanPlan } from "@port-butler/core";

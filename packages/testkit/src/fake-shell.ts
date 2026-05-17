@@ -1,4 +1,10 @@
 /**
+ * Port Butler 文件说明：
+ * 测试用假 shell 执行器。
+ * 允许测试按命令字符串返回预设 stdout/stderr/exitCode，避免依赖真实系统命令。
+ * 平台层和 core 层测试可以用它稳定复现复杂命令输出。
+ */
+/**
  * 测试用 fake shell 响应项。
  */
 export interface FakeShellEntry {

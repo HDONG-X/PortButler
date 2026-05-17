@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * CLI config 子命令的分发器。
+ * 集中处理 config path/show/init 三个只读或低风险配置操作，避免配置路径解析散落到其他命令里。
+ * 写入默认配置时复用 config 包的 schema 与 writeConfig，确保 CLI 和库层使用同一份默认值。
+ */
 import { Effect } from "effect";
 import { defaultConfig, readConfig, resolveConfigPath, writeConfig } from "@port-butler/config";
 import type { GlobalOptions } from "../options";

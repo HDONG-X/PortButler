@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 进程分类测试。
+ * 覆盖 Node/Vite/Next/Docker/Postgres/Redis/Bun 等常见开发进程，保护 detector 规则不回归。
+ * 测试关注分类结果和置信度，而不是具体平台命令输出。
+ */
 import { describe, expect, test } from "bun:test";
 import { classifyProcess } from "./classify";
 

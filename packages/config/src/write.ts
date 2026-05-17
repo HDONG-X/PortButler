@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 配置写入工具。
+ * 负责创建目录、稳定序列化 JSON，并保留 config 包对磁盘格式的唯一控制权。
+ * protect/unprotect/config init 等命令都通过这里写入，避免多个包各自实现文件写入。
+ */
 import { Effect } from "effect";
 import { dirname } from "node:path";
 import { mkdir } from "node:fs/promises";

@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * TUI 端口列表屏幕。
+ * 展示扫描得到的端口概览，并把列表渲染委托给共享表格组件。
+ * 列表屏幕保持只读，动作入口由命令输入负责。
+ */
 import type { ExplainedPort } from "@port-butler/core";
 import { PortTable } from "../components/table";
 

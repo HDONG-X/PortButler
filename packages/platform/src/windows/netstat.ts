@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * Windows netstat 输出解析器。
+ * 把 netstat -ano 的文本行转换为统一的 ListeningPort 模型。
+ * 该解析器作为 PowerShell 扫描失败时的兼容路径。
+ */
 import type { PlatformPortBinding } from "../model";
 
 /**

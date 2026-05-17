@@ -1,4 +1,10 @@
 /**
+ * Port Butler 文件说明：
+ * 基础设计 token。
+ * 定义颜色、间距和风险色等跨界面共享的视觉常量。
+ * token 只表达设计语义，不绑定具体组件实现。
+ */
+/**
  * Port Butler 的设计 token。TUI 和未来 Web 页面都从这里派生颜色和间距。
  */
 export const themeTokens = {

@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * CLI ui 子命令的 TUI 启动入口。
+ * 为了让普通命令不加载 OpenTUI/Solid，TUI 使用动态 import 延迟加载。
+ * 启动失败时返回可操作的下一步提示，方便用户先用 pbt ls 验证核心能力。
+ */
 import { Effect } from "effect";
 import type { GlobalOptions } from "../options";
 

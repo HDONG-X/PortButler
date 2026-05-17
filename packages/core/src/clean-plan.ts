@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 清理僵尸开发进程的计划生成与执行逻辑。
+ * 该模块只根据已解释的端口和配置筛选候选项，先生成 CleanPlan，再由调用方决定是否执行。
+ * Docker/Postgres/Redis 等基础设施默认排除，体现 Port Butler 的保守安全模型。
+ */
 import { Effect } from "effect";
 import type { PortButlerConfig } from "@port-butler/config";
 import type { CleanPlan, KillExecutionOptions, KillResult } from "./model";

@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * TUI 专用主题映射。
+ * 把基础 token 映射成终端界面需要的背景、边框、文字和风险色。
+ * TUI 组件应优先使用这里的语义字段，而不是直接散落十六进制颜色。
+ */
 import { themeTokens } from "./tokens";
 
 /**

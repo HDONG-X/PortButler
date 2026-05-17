@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * Windows PowerShell 端口与进程解析器。
+ * 解析 Get-NetTCPConnection 和 Get-CimInstance 的 JSON 输出，提供比 netstat 更结构化的信息。
+ * 这里只做 Windows 输出格式转换，不做业务风险判断。
+ */
 import type { PlatformPortBinding, PlatformProcessInfo } from "../model";
 
 interface NetTcpRow {
@@ -21,6 +27,7 @@ interface CimProcessRow {
 export function parseGetNetTcpConnectionJson(output: string): PlatformPortBinding[] {
   if (!output.trim()) return [];
   const parsed = JSON.parse(output) as NetTcpRow | NetTcpRow[];
+  // PowerShell 单条记录返回对象，多条记录返回数组；统一成数组后再处理。
   const rows = Array.isArray(parsed) ? parsed : [parsed];
   return rows
     .filter((row) => row.LocalPort && row.OwningProcess)
@@ -50,6 +57,7 @@ export function parseCimProcessJson(output: string, pid: number): PlatformProces
 
 function parseWmiDate(value?: string): Date | null {
   if (!value) return null;
+  // 新旧 PowerShell/WMI 可能返回 /Date(ms)/ 或 yyyyMMddHHmmss 两种时间格式。
   const jsonDate = value.match(/\/Date\((\d+)\)\//);
   if (jsonDate) return new Date(Number(jsonDate[1]));
   const match = value.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);

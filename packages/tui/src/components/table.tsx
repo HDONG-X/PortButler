@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * TUI 端口表格组件。
+ * 把 ExplainedPort 列表渲染成终端表格，展示端口、进程、分类、保护和风险信息。
+ * 表格组件只负责展示，不触发 why/kill/clean 等动作。
+ */
 import { For } from "solid-js";
 import type { ExplainedPort } from "@port-butler/core";
 import { tuiTheme } from "@port-butler/theme";
@@ -15,9 +21,7 @@ export function PortTable(props: { items: ExplainedPort[]; selected: number }) {
           const selected = () => index() === props.selected;
           return (
             <box flexDirection="row" width="100%">
-              <text fg={selected() ? tuiTheme.focus : tuiTheme.dim}>
-                {selected() ? "▌" : " "}
-              </text>
+              <text fg={selected() ? tuiTheme.focus : tuiTheme.dim}>{selected() ? "▌" : " "}</text>
               <text fg={tuiTheme.text}>
                 {String(item.binding.localPort).padEnd(6)}
                 {String(item.process.pid).padEnd(8)}

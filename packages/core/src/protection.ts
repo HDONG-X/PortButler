@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 端口保护与风险判定辅助逻辑。
+ * 负责把默认保护、用户配置保护和系统端口规则合并成统一判断。
+ * core 的 kill/clean/ports 都依赖这里，保证风险口径一致。
+ */
 import type { PortButlerConfig } from "@port-butler/config";
 import type { DetectionResult, ProcessInfo, RiskLevel } from "./model";
 

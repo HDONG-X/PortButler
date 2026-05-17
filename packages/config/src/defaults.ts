@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * Port Butler 默认配置。
+ * 这里集中定义保护端口、风险阈值、清理策略和打开浏览器策略，作为用户配置的合并基线。
+ * 默认值偏保守：基础设施端口默认受保护，清理动作默认只预览。
+ */
 import type { PortButlerConfig } from "./schema";
 
 /**

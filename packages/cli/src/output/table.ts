@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * CLI 文本表格与计划渲染器。
+ * 它把端口列表、why 结果、kill plan、clean plan 等业务对象转成终端友好的文本。
+ * 这里不做安全判断，只展示 core 已经计算好的风险、保护状态和建议。
+ */
 import stringWidth from "string-width";
 import type { CleanPlan, ExplainedPort, KillPlan, KillResult } from "@port-butler/core";
 

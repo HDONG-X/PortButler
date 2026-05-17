@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 跨平台进程终止工具。
+ * 根据当前系统选择 taskkill 或 kill，并把系统命令结果转换为 KillResult。
+ * 它只执行传入 PID 的终止动作，不负责判断 PID 是否安全。
+ */
 import { Effect } from "effect";
 import type { PlatformKillOptions, PlatformKillResult } from "./model";
 import { runShell } from "./shell";

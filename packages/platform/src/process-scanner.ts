@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 监听端口扫描器。
+ * 根据平台调用 Windows 或 macOS 的端口命令，并统一转换为 ListeningPort 列表。
+ * 扫描器只收集事实，不做进程分类、风险判断或清理决策。
+ */
 import { Effect } from "effect";
 import { runShell } from "./shell";
 import type { PlatformPortBinding } from "./model";

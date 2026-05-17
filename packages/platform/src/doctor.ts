@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 平台依赖诊断。
+ * 检查当前操作系统和必要命令是否可用，为 pbt doctor 提供原始诊断项。
+ * 诊断逻辑尽量只读，不能修改用户系统状态。
+ */
 import { Effect } from "effect";
 import { commandExists } from "./shell";
 

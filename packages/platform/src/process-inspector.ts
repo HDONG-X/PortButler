@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 进程详情检查器。
+ * 根据 PID 调用不同平台命令获取命令行、父进程和启动时间等信息。
+ * 如果系统拒绝访问或命令失败，会返回尽可能多的已知信息，而不是让整个扫描中断。
+ */
 import { Effect } from "effect";
 import { runShell } from "./shell";
 import type { PlatformProcessInfo } from "./model";

@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * CLI 命令总分发器。
+ * runCli 把原始 argv 转换为具体命令调用，是 CLI 包和 core 包之间的主要边界。
+ * 默认无参数启动 TUI；显式命令则保持脚本化输出，方便交互和自动化两种使用方式共存。
+ */
 import { Effect } from "effect";
 import { PORT_BUTLER_VERSION } from "@port-butler/core";
 import { cleanCommand } from "./commands/clean";

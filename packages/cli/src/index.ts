@@ -1,4 +1,10 @@
 #!/usr/bin/env bun
+/**
+ * Port Butler 文件说明：
+ * CLI 进程入口文件。
+ * 这里只负责捕获 runCli 的成功输出或错误输出，并把错误映射为非零退出码。
+ * 业务分发、参数解析和安全策略都放在其他模块，避免入口文件变成隐藏的控制中心。
+ */
 import { Effect } from "effect";
 import { runCli } from "./run-cli";
 import { formatFatalError } from "./output/errors";

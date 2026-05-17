@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 僵尸进程评分测试。
+ * 覆盖空闲时长、命令行特征、进程类型和保护策略对评分的影响。
+ * 这些测试确保 clean 的候选排序和阈值语义可预期。
+ */
 import { describe, expect, test } from "bun:test";
 import { defaultConfig } from "@port-butler/config";
 import { scoreZombieProcess } from "./zombie-score";

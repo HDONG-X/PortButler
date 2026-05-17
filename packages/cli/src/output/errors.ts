@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * CLI 错误输出适配器。
+ * 负责把 core/platform/config 抛出的错误统一转换成人类可读文本，并在 JSON 模式下保持结构化。
+ * 集中处理错误格式可以避免每个命令重复拼接失败原因和下一步建议。
+ */
 import { PortButlerError, toPortButlerError } from "@port-butler/core";
 
 /**

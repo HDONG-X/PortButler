@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * CLI 参数解析测试。
+ * 覆盖全局选项、位置参数和端口校验，确保命令层收到结构化输入。
+ * 参数解析是所有命令共享入口，因此这里的测试能保护多个子命令。
+ */
 import { describe, expect, test } from "bun:test";
 import { parseArgs, parsePort } from "./options";
 

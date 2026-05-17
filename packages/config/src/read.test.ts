@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 配置读取测试。
+ * 覆盖缺省配置、用户覆盖和 JSONC 解析，确保配置文件变化不会破坏默认安全策略。
+ * 这些测试保护 readConfig 的合并语义，而不是只验证文件能否读取。
+ */
 import { describe, expect, test } from "bun:test";
 import { mergeConfig } from "./read";
 

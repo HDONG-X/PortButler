@@ -1,4 +1,10 @@
 /**
+ * Port Butler 文件说明：
+ * core 层领域模型。
+ * 定义端口解释、风险等级、kill plan、clean plan、诊断结果等跨包共享结构。
+ * 这些类型是 CLI、TUI、detector、platform 之间的语言，字段含义应尽量稳定。
+ */
+/**
  * 当前正式支持的平台类型。Linux 预留给未来版本，当前遇到 Linux 会返回中文不支持错误。
  */
 export type SupportedPlatform = "darwin" | "win32";

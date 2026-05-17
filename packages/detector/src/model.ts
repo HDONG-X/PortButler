@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * detector 层数据模型。
+ * 定义分类输入、分类结果、进程类型和僵尸评分结果，作为 detector 与 core 的契约。
+ * 模型字段偏解释型，方便 CLI/TUI 把判断依据展示给用户。
+ */
 import type { PortButlerConfig } from "@port-butler/config";
 
 /**

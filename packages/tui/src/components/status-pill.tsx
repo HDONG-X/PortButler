@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * TUI 状态徽标组件。
+ * 根据风险、保护状态或普通文本渲染紧凑标签，帮助列表快速扫描。
+ * 颜色语义来自 theme，避免每个屏幕重复定义状态色。
+ */
 import { tuiTheme } from "@port-butler/theme";
 
 /**

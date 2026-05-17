@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * CLI why 子命令的端口解释入口。
+ * 它把指定端口交给 core 做归因，输出进程、分类、风险、保护状态和判断理由。
+ * why 是 kill 前的解释型命令，因此保持只读，并尽量展示足够多的决策依据。
+ */
 import { Effect } from "effect";
 import { readConfig } from "@port-butler/config";
 import { explainPort } from "@port-butler/core";

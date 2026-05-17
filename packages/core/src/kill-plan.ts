@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 端口释放的安全计划生成与执行逻辑。
+ * createKillPlan 只负责解释风险并形成计划，executeKillPlan 才会真正调用 platform 终止进程。
+ * 保护端口、高风险目标和 --force/--yes 规则都在这里收口，防止 UI 绕过安全策略。
+ */
 import { Effect } from "effect";
 import type { PortButlerConfig } from "@port-butler/config";
 import { killProcess } from "@port-butler/platform";
@@ -24,6 +30,7 @@ export function createKillPlan(
       };
     }
 
+    // KillPlan 只保存执行所需的最小目标信息；更完整的解释留在 why/ls 输出里。
     const target = {
       pid: explained.process.pid,
       name: explained.process.name,
@@ -33,6 +40,7 @@ export function createKillPlan(
       reasons: [...explained.detection.reasons, ...explained.zombieReasons],
     };
 
+    // blocked 是硬拒绝：即使用户传 --yes，也不能绕过保护端口或 neverKill 进程。
     if (explained.risk === "blocked") {
       return {
         port,
@@ -72,6 +80,7 @@ export function executeKillPlan(
         }),
       );
     }
+    // dry-run 必须在确认检查前返回，确保用户可以安全预览任何风险等级的计划。
     if (options.dryRun) {
       return plan.targets.map((target) => ({
         pid: target.pid,
@@ -79,6 +88,7 @@ export function executeKillPlan(
         message: "dry-run：已生成计划，未执行终止。",
       }));
     }
+    // 中高风险目标必须显式 --yes，避免把“生成计划”和“执行计划”混在一起。
     if (plan.requiresConfirmation && !options.yes) {
       return yield* Effect.fail(
         new PortButlerError({
@@ -91,6 +101,7 @@ export function executeKillPlan(
         }),
       );
     }
+    // high risk 再额外要求 --force；这是数据库、Docker、未知系统服务的最后一道闸门。
     const hasHighRisk = plan.targets.some((target) => target.risk === "high");
     if (hasHighRisk && !options.force) {
       return yield* Effect.fail(
@@ -104,6 +115,7 @@ export function executeKillPlan(
       );
     }
 
+    // 同一个进程可能同时监听 IPv4/IPv6 或多个地址，同一 PID 只终止一次。
     const uniquePids = [...new Map(plan.targets.map((target) => [target.pid, target])).values()];
     return yield* Effect.forEach(
       uniquePids,

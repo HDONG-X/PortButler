@@ -12,7 +12,7 @@
     "typecheck": "turbo typecheck",
     "format": "prettier --write .",
     "release:local": "bun scripts/build.ts",
-    "pbt": "bun packages/cli/src/index.ts"
+    "pbt": "bun scripts/pbt.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",

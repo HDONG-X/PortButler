@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * TUI 端口详情屏幕。
+ * 展示单个 ExplainedPort 的归因、风险、保护状态和建议动作。
+ * 该屏幕服务于 why 场景，帮助用户在 kill 前理解端口来源。
+ */
 import type { ExplainedPort } from "@port-butler/core";
 import { tuiTheme } from "@port-butler/theme";
 

@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * Port Butler 终端 UI 主应用。
+ * 该文件集中管理 OpenTUI/Solid 的状态、键盘交互、命令执行、输出回放和终端表格渲染。
+ * 业务动作仍然委托 core/config/platform 包完成，TUI 只负责把交互状态转换成用户可操作的界面。
+ */
 import type { KeyEvent, ScrollBoxRenderable, TextareaRenderable } from "@opentui/core";
 import { render, useKeyboard, useRenderer } from "@opentui/solid";
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
@@ -210,6 +216,8 @@ const BLOCKED = "#ef4444";
  */
 export function App(props: StartTuiOptions) {
   const renderer = useRenderer();
+
+  // 顶层状态分成四组：界面语言/屏幕、输入框、命令记录、端口运行态。
   const [language, setLanguage] = createSignal<Language>("zh");
   const [screen, setScreen] = createSignal<"home" | "workspace">("home");
   const [prompt, setPrompt] = createSignal("");
@@ -226,6 +234,7 @@ export function App(props: StartTuiOptions) {
   let promptInput: TextareaRenderable | undefined;
   let lastLanguageToggleAt = 0;
 
+  // loadingFrame 用轻量定时器驱动，不绑定具体命令；任何 busy 状态都可以复用同一动画。
   const loadingTimer = setInterval(() => setLoadingFrame((frame) => frame + 1), 90);
   onCleanup(() => clearInterval(loadingTimer));
 
@@ -239,6 +248,7 @@ export function App(props: StartTuiOptions) {
     setLanguage(next);
     setStatusTitle(copy[next].statusTitle);
     setStatusLine(copy[next].languageStatus);
+    // 历史命令不重新执行；依赖 replay 保存的结构化结果做本地重渲染。
     setEntries((items) =>
       items.map((item) => {
         if (!item.replay || item.loading) return item;
@@ -267,6 +277,7 @@ export function App(props: StartTuiOptions) {
     key.name === "down" || key.name === "downarrow" || key.raw === "\u001b[B";
 
   useKeyboard((key) => {
+    // 全局键只处理退出和 Enter 提交；输入框内的补全/历史导航留给 textarea 回调。
     if (key.name === "escape" || (key.ctrl && key.name === "c")) {
       renderer.destroy();
       return;
@@ -289,6 +300,7 @@ export function App(props: StartTuiOptions) {
     const value = promptInput?.plainText ?? "";
     setPrompt(value);
     const index = historyIndex();
+    // 用户在历史命令上继续编辑时，立刻退出历史游标，避免覆盖当前草稿。
     if (index !== null && value !== history()[index]) {
       setHistoryIndex(null);
       setHistoryDraft(value);
@@ -356,6 +368,7 @@ export function App(props: StartTuiOptions) {
           : 0
         : Math.max(0, Math.min(items.length - 1, current + direction));
 
+    // 向下越过最新历史项时，恢复进入历史模式前的未提交草稿。
     if (current !== null && direction === 1 && current === items.length - 1) {
       setHistoryIndex(null);
       setPromptInputText(historyDraft());
@@ -375,6 +388,7 @@ export function App(props: StartTuiOptions) {
   };
 
   const submitFromPrompt = () => {
+    // OpenTUI 的文本同步晚于 keydown；双层 timeout 保证读取到最新 plainText。
     setTimeout(() => {
       setTimeout(() => {
         const value = promptInput?.plainText ?? prompt();
@@ -397,6 +411,7 @@ export function App(props: StartTuiOptions) {
     const started = performance.now();
     const pendingId = Date.now() + entries().length;
     const accent = entries().length % 2 === 0 ? BLUE : ORANGE;
+    // 先插入 loading 卡片，命令完成后再原地替换为可回放的结构化输出。
     appendEntry({
       id: pendingId,
       input: command,
@@ -903,10 +918,12 @@ async function runTuiCommand(
   const parts = commandLine.split(/\s+/).filter(Boolean);
   let command = normalizeCommandToken(parts[0]) ?? "help";
   let args = parts.slice(1);
+  // 兼容用户输入完整命令，例如 “pbt ls” 和 “/ls” 都走同一套分支。
   if (command === "pbt") {
     command = normalizeCommandToken(args[0]) ?? "ls";
     args = args.slice(1);
   }
+  // 每次命令执行前重新读取配置，让 protect/unprotect 后的状态立即生效。
   const config = await Effect.runPromise(readConfig(configPath));
 
   if (command === "help") {
@@ -972,6 +989,7 @@ async function runTuiCommand(
   if (command === "clean") {
     const confirmed = args.includes("--yes");
     const dryRun = args.includes("--dry-run") || !confirmed;
+    // clean 默认预览；只有显式 --yes 且未要求 --dry-run 时才执行计划。
     const plan = await Effect.runPromise(
       createCleanPlan(config, {
         dryRun,
@@ -1022,6 +1040,7 @@ async function runTuiCommand(
   if (command === "protect") {
     const port = parseTuiPort(args[0], zh);
     if (!config.protectedPorts.includes(port)) {
+      // protect 保持幂等，已有端口不会重复写入配置数组。
       config.protectedPorts = [...config.protectedPorts, port].sort((a, b) => a - b);
       await Effect.runPromise(writeConfig(config, configPath));
     }
@@ -1072,6 +1091,7 @@ async function runTuiCommand(
   if (command === "kill") {
     const port = parseTuiPort(args[0], zh);
     const plan = await Effect.runPromise(createKillPlan(port, config));
+    // 不带 --yes 时只展示计划，避免 TUI 命令输入误触发危险动作。
     if (args.includes("--yes")) {
       const results = await Effect.runPromise(
         executeKillPlan(plan, {
@@ -1172,6 +1192,7 @@ function renderReplay(
   language: Language,
 ): { thinking: string; output: OutputLine[]; mode: "plan" | "build" } {
   const zh = language === "zh";
+  // replay 保存业务对象，不保存最终字符串；切换语言时可以重新生成完整输出。
   switch (replay.type) {
     case "help":
       return {
@@ -1432,6 +1453,7 @@ function renderIpTable(
     item: row.item,
   }));
   const normalizedHeaders = headers.map(normalizeTableCell);
+  // 终端字符宽度不等于 JS 字符串长度，中文和符号需要按显示宽度对齐。
   const widths = normalizedHeaders.map((header, index) =>
     Math.max(
       displayWidth(header),

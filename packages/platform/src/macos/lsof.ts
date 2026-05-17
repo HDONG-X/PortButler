@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * macOS lsof 输出解析器。
+ * 把 lsof 的文本行转换为统一的 ListeningPort 模型，供 process-scanner 聚合。
+ * 解析器只处理格式转换，不执行 shell 命令。
+ */
 import type { PlatformPortBinding } from "../model";
 
 /**

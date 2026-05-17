@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * TUI 构建脚本。
+ * 使用 OpenTUI 的 Solid Bun 插件把 TSX 入口打包到 dist，供 CLI 动态 import。
+ * OpenTUI 的平台原生包保持 external，避免打包时把不相关平台二进制卷入产物。
+ */
 import solidPlugin from "@opentui/solid/bun-plugin";
 
 const result = await Bun.build({

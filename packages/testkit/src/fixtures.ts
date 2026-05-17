@@ -1,4 +1,10 @@
 /**
+ * Port Butler 文件说明：
+ * 测试 fixture 读取工具。
+ * 统一从包内 fixture 目录加载文本或 JSON 样本，减少测试文件里的路径拼接。
+ * fixture 是平台解析器测试的重要输入，应尽量贴近真实命令输出。
+ */
+/**
  * Windows Get-NetTCPConnection fixture。
  */
 export const windowsGetNetTcpConnectionFixture = JSON.stringify([

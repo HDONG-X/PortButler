@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * 端口保护策略测试。
+ * 覆盖默认保护端口、用户保护端口和系统风险策略，确保危险目标不会被误判为低风险。
+ * 这些测试直接保护 kill/clean 的安全前置条件。
+ */
 import { describe, expect, test } from "bun:test";
 import { defaultConfig } from "@port-butler/config";
 import { isNeverKillProcess, isProtectedPort, resolveKillRisk } from "./protection";

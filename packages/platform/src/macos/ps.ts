@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * macOS ps 输出解析器。
+ * 把 ps 的 pid/ppid/command 输出转换为 ProcessInfo，供进程检查器补充命令行和父进程信息。
+ * 解析逻辑独立出来，方便用 fixture 测试平台文本格式。
+ */
 import type { PlatformProcessInfo } from "../model";
 
 /**

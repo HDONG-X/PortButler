@@ -1,3 +1,9 @@
+/**
+ * Port Butler 文件说明：
+ * CLI open 子命令的浏览器入口。
+ * 它校验端口是否允许打开，再委托 platform 包使用系统默认浏览器访问 localhost。
+ * 这里仍然读取配置，是为了尊重 open.allowSchemes 等运行时策略。
+ */
 import { Effect } from "effect";
 import { readConfig } from "@port-butler/config";
 import { openLocalhost } from "@port-butler/platform";

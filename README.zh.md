@@ -27,6 +27,8 @@ bun install
 bun run pbt
 ```
 
+首次启动时，`bun run pbt` 会在需要时自动准备终端 UI 构建产物。
+
 直接执行命令：
 
 ```bash
